@@ -1,2 +1,10 @@
 # StructV
- 数据结构可视化引擎
+![](https://github.com/phenomLi/StructV/raw/master/images/微信截图_20200318203653.png)
+
+### Feature
+- 动态更新
+- 丰富配置项
+- 自定义样式
+- 自定义图形
+- 图形复用算法
+- 标签避让算法
