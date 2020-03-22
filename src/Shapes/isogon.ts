@@ -1,17 +1,21 @@
-import { Shape } from "./shape";
+import { Shape, BaseOption } from "./shape";
 import { zrenderShape, Renderer } from "../View/renderer";
+import { BaseShapeOption } from "../option";
+
 
 
 
 export class Isogon extends Shape {
-    option = {
-        ...this.option,
-        // 边数
-        edges: 5
-    };
+    constructor(id: string, name: string, opt: BaseShapeOption) {
+        super(id, name, opt);
+    }
 
-    constructor(id: string, name: string) {
-        super(id, name);
+    defaultOption(baseOption: BaseOption): BaseOption {
+        return {
+            ...baseOption,
+            // 边数
+            edges: 5
+        };
     }
 
     createZrenderShape(): zrenderShape {

@@ -58,7 +58,7 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
 
     // Shape构造函数容器，用作存放扩展的Shape（基本上为Composite）
     static ShapesTable: {[key: string]: {
-        constructor: { new(id: string, name: string): Shape },
+        constructor: { new(id: string, name: string, opt: any): Shape },
         scope: string
     } } = {};
 
@@ -72,7 +72,7 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
         this.name = engineInfo.name;
         
         this.elementsOption = engineInfo.defaultOption.element;
-        this.layoutOption = engineInfo.defaultOption.layout;
+        this.layoutOption = engineInfo.defaultOption.layout as LayoutOption;
         Util.merge(this.animationOption, engineInfo.defaultOption.animation);
 
         if(engineInfo.element) {   

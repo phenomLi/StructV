@@ -1,28 +1,32 @@
-import { PolyLine, LineStyle } from "./polyLine";
+import { PolyLine } from "./polyLine";
 import { zrenderShape, Renderer } from "../View/renderer";
 import { Util } from "../Common/util";
+import { BaseOption } from "./shape";
+import { BaseShapeOption } from "../option";
 
 
 
 
 export class Curve extends PolyLine {
-    option = {
-        ...this.option,
-        // 曲率
-        curveness: 0.2
-    };
-
     // 控制点
     prevControlPoint: [number, number] = null;
     controlPoint: [number, number] = null;
 
-    constructor(id: string, name: string) {
-        super(id, name);
+    constructor(id: string, name: string, opt: BaseShapeOption) {
+        super(id, name, opt);
 
         // 添加路径动画项
         this.animationsTable = {
             ...this.animationsTable,
             path: 'curve'
+        };
+    }
+
+    defaultOption(baseOption: BaseOption): BaseOption {
+        return {
+            ...baseOption,
+            // 曲率
+            curveness: 0.2
         };
     }
 
@@ -42,20 +46,8 @@ export class Curve extends PolyLine {
     }
 
     restoreData() {
-        this.prevX = this.x;
-        this.prevY = this.y;
-        this.prevRotation = this.rotation;
-        this.prevVisible = this.visible;
-        this.prevStyle = this.style;
-        this.prevPath = this.path;
+        super.restoreData();
         this.prevControlPoint = this.controlPoint;
-        
-        this.x = 0;
-        this.y = 0;
-        this.rotation = 0;
-        this.visible = false;
-        this.style = new LineStyle();
-        this.path = [];
         this.controlPoint = null;
     }
 

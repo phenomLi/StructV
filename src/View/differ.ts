@@ -78,7 +78,7 @@ export class Differ {
                 oldShape
             });
         }
-    
+
         // 比较样式
         let style = this.differStyle(oldShape.prevStyle, newShape.style);
         if(style.length) {

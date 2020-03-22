@@ -2,7 +2,6 @@ import { Shape, Style } from '../Shapes/shape';
 import { SourceElement } from '../sources';
 import { LayoutOption } from '../option';
 import { BoundingRect, Bound } from '../View/boundingRect';
-import { anchor } from './linkHandler';
 
 
 
@@ -21,8 +20,6 @@ export class Element<T extends SourceElement = SourceElement> {
     layoutOption: LayoutOption;
 
     [key: string]: any;
-
-    anchors: anchor[];
 
     /**
      * 应用源数据元素的属性

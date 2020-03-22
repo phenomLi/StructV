@@ -1,19 +1,46 @@
 import { Renderer, zrenderShape } from "../View/renderer";
 import { Util } from "../Common/util";
 import { BoundingRect, Bound } from "../View/boundingRect";
+import { anchorSet } from "../Model/linkHelper";
+import { BaseShapeOption } from "../option";
+
  
-
-
-export class Style {
-    fill?: string = '#000';
-    text?: string = '';
-    textFill?: string = '#000';
-    fontSize?: number = 15;
-    fontWeight?: number = null;
-    stroke?: string = null;
-    opacity?: number = 1;
-    lineWidth?: number = 1;
+export interface BaseOption {
+    // 文本内容（字段名）
+    content: string | string[];
+    // 图形尺寸
+    size: [number, number] | number;
+    // 绘制层级
+    zIndex: number;
+    // 出场动画
+    show: string | [string, string];
+    // 其余属性（免得每次新增属性都要声明一个新的子interface）
+    [key: string]: any;
 }
+
+
+export interface Style {
+    // 填充颜色
+    fill: string;
+    // 图形文本
+    text: string;
+    // 文本颜色
+    textFill: string;
+    // 字体大小
+    fontSize: number;
+    // 字重
+    fontWeight: number;
+    // 描边样式
+    stroke: string;
+    // 透明度
+    opacity: number;
+    // 线宽
+    lineWidth: number;
+    // 其余属性（免得每次新增属性都要声明一个新的子interface）
+    [key: string]: any;
+}
+
+
 
 /**
  * 图形挂载状态
@@ -51,7 +78,7 @@ export class Shape {
     // 旋转
     rotation: number = 0;
     // 样式
-    style: Style = new Style();
+    style: Style = null;
 
     prevX: number = 0;
     prevY: number = 0;
@@ -60,18 +87,24 @@ export class Shape {
     prevStyle: Style = null;
 
     // ------------------------------------
+    // 基础样式
+    baseStyle: Style = {
+        fill: '#000',
+        text: '',
+        textFill: '#000',
+        fontSize: 15,
+        fontWeight: null,
+        stroke: null,
+        opacity: 1,
+        lineWidth: 1
+    };
     // 图形配置项
-    option = {
-        // 文本内容（字段名）
+    option: BaseOption = {
         content: null,
-        // 图形尺寸
         size: [0, 0],
-        // 绘制层级
         zIndex: 1,
-        // 出场动画
         show: 'scale'
     };
-
     // 宽高
     width: number = 0;
     height: number = 0;
@@ -86,7 +119,6 @@ export class Shape {
     // 挂载状态（默认为需挂载NEEDMOINT）
     mountState: number = mountState.NEEDMOUNT;
     
-
     // 动画表
     animationsTable: { [key: string]: string } = {
         position: 'translate',
@@ -96,10 +128,59 @@ export class Shape {
         style: 'style'
     };
 
-    constructor(id: string, name: string) {
+    constructor(id: string, name: string, opt: BaseShapeOption) {
         this.id = id;
         this.name = name;
+        this.option = this.defaultOption(this.option);
+        this.style = this.defaultStyle(this.baseStyle);
+
+        this.applyShapeOption(opt);
     };
+
+    /**
+     * 定义默认配置项
+     */
+    defaultOption(baseOption: BaseOption): BaseOption {
+        return baseOption;
+    }
+
+    /**
+     * 定义默认样式
+     */
+    defaultStyle(baseStyle: Style): Style {
+        return { ...baseStyle };
+    }
+
+    /**
+     * 设置图形的基础锚点
+     * - 对于没有默认锚点基础图形，比如圆形，多边形和矩形，模式锚点设置为：上，下，左，右，中5个，按顺时针方向对5个锚点进行编号，分别为0，1，2，3. 4：
+     *          0
+     *      \---*---\
+     *    3 *   4   * 1
+     *      \---*---\
+     *          2
+     * - 自定义的锚点，格式为 [number]：anchor，若number为0或1或2或3或4，则覆盖之前的锚点
+     */
+    getBaseAnchors(): anchorSet {
+        let hw = this.width / 2, hh = this.height / 2;
+        return {
+            0: [0, -hh], 
+            1: [hw, 0], 
+            2: [0, hh], 
+            3: [-hw, 0], 
+            4: [0, 0]
+        };
+    }
+
+    /**
+     * 获取图形的默认锚点
+     * @param baseAnchors 
+     * @param width
+     * @param height
+     */
+    defaultAnchors(baseAnchors: anchorSet, width: number, height: number): anchorSet {
+        return baseAnchors;
+    }
 
     /**
      * 重置所有可变属性
@@ -115,14 +196,14 @@ export class Shape {
         this.y = 0;
         this.rotation = 0;
         this.visible = false;
-        this.style = new Style();
+        this.style = this.defaultStyle(this.baseStyle);
     }
 
     /**
      * 应用元素配置项（尺寸，样式等）
      * @param style 
      */
-    applyShapeOption(opt) {
+    applyShapeOption(opt: Partial<BaseShapeOption>) {
         Util.merge(this.option, opt);
         Util.merge(this.style, opt.style);
 
@@ -153,7 +234,7 @@ export class Shape {
             }
         }
 
-        this.style.text = this.option.content;
+        this.style.text = this.option.content as string;
     }
 
     /**

@@ -1,7 +1,8 @@
 import { Composite } from "../Shapes/composite";
 import { Rect } from "../Shapes/rect";
-
-
+import { Style } from "../Shapes/shape";
+import { anchorSet } from "../Model/linkHelper";
+import { BaseShapeOption } from "../option";
 
 
 
@@ -9,8 +10,8 @@ import { Rect } from "../Shapes/rect";
  * 单侧（右）连接结点
  */
 export class Node extends Composite {
-    constructor(id: string, name: string) {
-        super(id, name);
+    constructor(id: string, name: string, opt: BaseShapeOption) {
+        super(id, name, opt);
 
         this.addSubShape({
             block: {
@@ -26,7 +27,7 @@ export class Node extends Composite {
             }, 
             wrapper: {
                 shapeName: 'rect',
-                init: (parent) => ({
+                init: () => ({
                     zIndex: -1,
                     content: null,
                     style: {
@@ -41,5 +42,20 @@ export class Node extends Composite {
                 }
             }
         });
+    }
+
+    defaultStyle(baseStyle: Style): Style {
+        return {
+            ...baseStyle,
+            // 外层容器颜色
+            wrapperColor: '#eee'
+        };
+    }
+
+    defaultAnchors(baseAnchors: anchorSet, w: number): anchorSet {
+        return {
+            ...baseAnchors,
+            1: [w / 3, 0]
+        };
     }
 }

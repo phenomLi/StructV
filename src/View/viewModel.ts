@@ -49,7 +49,7 @@ export class ViewModel {
      * @param opt
      * @param subShapeConfig
      */
-    createShape(id: string, shapeName: string, opt, subShapeConfig = null): Shape {
+    createShape(id: string, shapeName: string, opt): Shape {
         let shapeConstruct = Engine.ShapesTable[shapeName];
 
         // 若图形没有注册，报错
@@ -58,31 +58,15 @@ export class ViewModel {
             (shapeConstruct.scope && shapeConstruct.scope !== this.engine.getName()), 
         '图形' + shapeName + ' 未注册！');
 
-        let shape = this.reuseShape(id, shapeName);
+        let shape = this.reuseShape(id, shapeName, opt);
         // 若没有找到复用的图形，则创建新图形
         if(shape === null) {
-            shape = new shapeConstruct.constructor(id, shapeName);
+            shape = new shapeConstruct.constructor(id, shapeName, opt);
         }
-
-        // 应用图形配置
-        shape.applyShapeOption(opt);
 
         // 若图形是复合图形，则创建子图形
         if(shape instanceof Composite) {
-            subShapeConfig && shape.addSubShape(subShapeConfig);
-
-            shape.subShapes.map((item, index) => {
-                let subShapeOption = { style: {} };
-
-                Util.extends(subShapeOption, shape.option);
-                Util.extends(subShapeOption.style, shape.style);
-                if(item.init) {
-                    Util.extends(subShapeOption, item.init(shape as Composite));
-                } 
-
-                item.shape = this.createShape(shape.id + '#' + index, item.shapeName, subShapeOption);
-                item.shape.parentShape = shape;
-            });
+            this.createCompositeSubShapes(shape);
         }
 
         // 将图形加入图形管理器
@@ -95,6 +79,21 @@ export class ViewModel {
         }
         
         return shape;
+    }
+
+    createCompositeSubShapes(shape: Composite) {
+        shape.subShapes.map((item, index) => {
+            let subShapeOption = { style: {} };
+
+            Util.extends(subShapeOption, shape.option);
+            Util.extends(subShapeOption.style, shape.style);
+            if(item.init) {
+                Util.extends(subShapeOption, item.init(shape.option, shape.style));
+            } 
+
+            item.shape = this.createShape(shape.id + '#' + index, item.shapeName, subShapeOption);
+            item.shape.parentShape = shape;
+        });
     }
 
     /**
@@ -136,7 +135,7 @@ export class ViewModel {
      * @param id
      * @param shapeName
      */
-    private reuseShape(id: string, shapeName: string): Shape {
+    private reuseShape(id: string, shapeName: string, opt): Shape {
         // 若图形容器中根本没有这个类型的图形，则表明不能复用
         if(this.mainShapeContainer[shapeName] === undefined) {
             return null;
@@ -148,10 +147,8 @@ export class ViewModel {
         if(existShape) {
             // 重置图形的数据
             existShape.restoreData();
+            existShape.applyShapeOption(opt);
             existShape.visible = true;
-            if(existShape instanceof Composite) {
-                existShape.init();
-            }
 
             return existShape;
         }
@@ -209,7 +206,7 @@ export class ViewModel {
         // 将当前图形容器改为临时容器
         this.curShapeContainer = {};
 
-        console.log(this.mainShapeContainer);
+        //console.log(this.mainShapeContainer);
     }
 
     /**
@@ -238,6 +235,7 @@ export class ViewModel {
         this.removeList.length = 0;
         this.renderer.clear();
     }
+    
 
     // ----------------------------------------------------------------
 

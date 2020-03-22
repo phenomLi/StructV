@@ -1,4 +1,4 @@
-import { Shape } from "./shape";
+import { Shape, Style } from "./shape";
 import { zrenderShape, Renderer } from "../View/renderer";
 import { Bound, BoundingRect } from "../View/boundingRect";
 import { Vector } from "../Common/vector";
@@ -12,7 +12,7 @@ export type subShapeInfo = {
     shape: Shape;
     shapeName: string;
     draw: (parent: Composite, subShape: Shape) => void;
-    init: (parent: Composite) => any;
+    init: (parentOption: any, style: Style) => any;
 };
 
 
@@ -23,15 +23,9 @@ export class Composite extends Shape {
     // 组成复合图形的子图形
     subShapes: subShapeInfo[] = [];
 
-    constructor(id: string, name: string) {
-        super(id, name);
-        this.init();
+    constructor(id: string, name: string, opt) {
+        super(id, name, opt);
     }
-
-    /**
-     * 初始化自定义属性（用于Composite）
-     */
-    init() {}
 
     /**
      * 添加子图形
@@ -39,6 +33,8 @@ export class Composite extends Shape {
      */
     addSubShape(subShapeConfig: { [key: string]: Partial<subShapeInfo> }) {
         Object.keys(subShapeConfig).map(prop => {
+            if(!subShapeConfig[prop]) return;
+
             let subShape = {
                 label: prop,
                 shape: null,
@@ -74,7 +70,7 @@ export class Composite extends Shape {
     updateSubShapes() {
         this.subShapes.map(item => {
             item.shape.applyShapeOption({ style: this.style });
-            item.init && item.shape.applyShapeOption(item.init(this));
+            item.init && item.shape.applyShapeOption(item.init(this.option, this.style));
             item.draw(this, item.shape);
 
             item.shape.x -= this.x;

@@ -1,5 +1,7 @@
 import { Node } from "./node";
 import { Rect } from "../Shapes/rect";
+import { anchorSet } from "../Model/linkHelper";
+import { BaseShapeOption } from "../option";
 
 
 
@@ -10,13 +12,13 @@ import { Rect } from "../Shapes/rect";
  * 双侧连接结点
  */
 export class DualNode extends Node {
-    constructor(id: string, name: string) {
-        super(id, name);
+    constructor(id: string, name: string, opt: BaseShapeOption) {
+        super(id, name, opt);
 
         this.addSubShape({
             block: {
                 shapeName: 'rect',
-                draw: (parent: Node, block: Rect) => {
+                draw: (parent: DualNode, block: Rect) => {
                     let widthPart = parent.width / 4;
     
                     block.y = parent.y;
@@ -26,5 +28,13 @@ export class DualNode extends Node {
                 }
             }
         });
+    }
+
+    defaultAnchors(baseAnchors: anchorSet, w: number): anchorSet {
+        return {
+            ...baseAnchors,
+            1: [w * (3 / 8), 0],
+            3: [-w * ( 3 / 8), 0]
+        };
     }
 }

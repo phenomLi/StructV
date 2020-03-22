@@ -1,42 +1,30 @@
-import { Shape, Style } from "./shape";
+import { Shape, Style, BaseOption } from "./shape";
 import { zrenderShape, Renderer } from "../View/renderer";
+import { BaseShapeOption } from "../option";
 
-
-
-
-
-export class TextStyle extends Style {
-    // 文字背景
-    textBackgroundColor?: string = '#fff';
-    // 文字圆角
-    textBorderRadius?: number = 0;
-}
 
 
 
 export class Text extends Shape {
-    style: Style = new TextStyle();
-    option = {
-        ...this.option,
-        zIndex: 2
-    };
-
-    constructor(id: string, name: string) {
-        super(id, name);
+    constructor(id: string, name: string, opt: BaseShapeOption) {
+        super(id, name, opt);
     }
 
-    restoreData() {
-        this.prevX = this.x;
-        this.prevY = this.y;
-        this.prevRotation = this.rotation;
-        this.prevVisible = this.visible;
-        this.prevStyle = this.style;
-        
-        this.x = 0;
-        this.y = 0;
-        this.rotation = 0;
-        this.visible = false;
-        this.style = new TextStyle();
+    defaultOption(baseOption: BaseOption) {
+        return {
+            ...baseOption,
+            zIndex: 2
+        };
+    }
+
+    defaultStyle(baseStyle: Style): Style {
+        return {
+            ...baseStyle,
+            // 文字背景
+            textBackgroundColor: '#fff',
+            // 文字圆角
+            textBorderRadius: 0
+        };
     }
 
     /**

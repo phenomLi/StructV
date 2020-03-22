@@ -5,12 +5,8 @@ import { Composite } from "../Shapes/composite";
 import { ViewModel } from "../View/viewModel";
 import { SourceElement, Sources } from "../sources";
 import { Util } from "../Common/util";
-import { LinkHandler } from "./linkHandler";
-import { PointerHandler } from "./pointerHandler";
-import { Line } from "../SpecificShapes/line";
-import { PolyLine } from "../Shapes/polyLine";
-import { LinkOption, PointerOption } from "../option";
-import { Curve } from "../Shapes/curve";
+import { LinkHelper } from "./linkHelper";
+import { PointerHelper } from "./pointerHelper";
 
 
 
@@ -30,9 +26,9 @@ export class DataModel {
     // 视图模型管理器
     private viewModel: ViewModel;
     // 连接处理器
-    private linkHandler: LinkHandler;
+    private linkHelper: LinkHelper;
     // 指针处理器
-    private pointerHandler: PointerHandler;
+    private pointerHelper: PointerHelper;
     // 图形绑定队列
     private bindingInfos: bindingInfo[] = [];
     // 元素队列
@@ -44,8 +40,8 @@ export class DataModel {
         this.engine = engine;
         this.viewModel = viewModel;
 
-        this.linkHandler = new LinkHandler(engine, this, viewModel);
-        this.pointerHandler = new PointerHandler(engine, this, viewModel);
+        this.linkHelper = new LinkHelper(engine, this, viewModel);
+        this.pointerHelper = new PointerHelper(engine, this, viewModel);
     }
 
     /**
@@ -72,7 +68,7 @@ export class DataModel {
 
         // 若存在连接，则处理结点间的连接
         if(this.engine.layoutOption.link) {
-            this.linkHandler.buildLinkRelation(this.elementContainer, this.elementList);
+            this.linkHelper.buildLinkRelation(this.elementContainer, this.elementList);
         }
     }
 
@@ -96,12 +92,12 @@ export class DataModel {
         
         // 若存在指针，则处理指针
         if(this.engine.layoutOption.pointer) {
-            this.pointerHandler.bindPointerShape(this.engine.layoutOption.pointer, this.elementList);
+            this.pointerHelper.bindPointerShape(this.engine.layoutOption.pointer, this.elementList);
         }
 
         // 若声明连接，则进行连接绑定
         if(this.engine.layoutOption.link) {
-            this.linkHandler.bindLinkShape(this.engine.layoutOption.link, this.elementList);
+            this.linkHelper.bindLinkShape(this.engine.layoutOption.link, this.elementList);
         }
     }
 
@@ -140,94 +136,6 @@ export class DataModel {
      */
     getElements(): ElementContainer {
         return this.elementContainer;
-    }
-
-    /**
-     * 创建连接线Line
-     * @param id 
-     * @param linkOption 
-     */
-    createLineShape(id: string, option: LinkOption | PointerOption): Shape {
-        let subShapesConfig = {},
-            line: Line = null,
-            curveness = option['curveness'] || 0,
-            markers = option.markers,
-            fromMarker = null, toMarker = null;
-
-        // 若配置了曲率，则使用二次贝塞尔曲线
-        subShapesConfig['line'] = {
-            shapeName: curveness? 'curve': 'polyLine',
-            init: parent => ({
-                style: {
-                    stroke: parent.style.fill,
-                    fill: null
-                }
-            }),
-            draw: (parent: Line, line: PolyLine) => {
-                let start = parent.start,
-                    end = parent.end;
-
-                line.path = [ [start.x, start.y], [end.x, end.y] ];
-
-                if(line instanceof Curve) {
-                    line.controlPoint = line.calcControlPoint(start, end);
-                }
-            }
-        }
-      
-        // 添加marker
-        if(markers) {
-            // 若只配置了结尾marker
-            if(typeof markers === 'string') {
-                toMarker = markers;
-            }
-            // 配置了两端marker
-            else {
-                fromMarker = markers[0];
-                toMarker = markers[1];
-            }
-        }
-
-        if(fromMarker) {
-            subShapesConfig['fromMarker'] = {
-                shapeName: fromMarker,
-                init: parent => ({
-                    zIndex: 2
-                }),
-                draw: (parent: Line, marker: Shape) => {
-                    let start = parent.start;
-                    
-                    marker.x = start.x;
-                    marker.y = start.y;
-                    marker.rotation = parent.tangentAt(0) + Math.PI;
-
-                    marker.width = parent.getSubShape('line').style.lineWidth + 5;
-                    marker.height = marker.width;
-                }
-            }
-        }
-            
-        if(toMarker) {
-            subShapesConfig['toMarker'] = {
-                shapeName: toMarker,
-                init: parent => ({
-                    zIndex: 2
-                }),
-                draw: (parent: Line, marker: Shape) => {
-                    let end = parent.end;
-                    
-                    marker.x = end.x;
-                    marker.y = end.y;
-                    marker.rotation = parent.tangentAt(1);
-
-                    marker.width = parent.getSubShape('line').style.lineWidth + 5;
-                    marker.height = marker.width;
-                }
-            }
-        }
-
-        line = this.viewModel.createShape(id, 'line', option, subShapesConfig) as Line;
-        return line;
     }
 
     /**
@@ -273,7 +181,6 @@ export class DataModel {
         ele.rotation = shape.rotation;
         ele.style = shape.style;
         ele.layoutOption = this.engine.layoutOption;
-        ele.anchors = this.linkHandler.getAnchors(ele);
         // 初始化元素自定义数据
         ele.init && ele.init();
       
@@ -338,7 +245,7 @@ export class DataModel {
         this.bindingInfos.length = 0;
         this.elementContainer = {};
 
-        this.linkHandler.clear();
+        this.linkHelper.clear();
     }
 
     /**

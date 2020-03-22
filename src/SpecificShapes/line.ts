@@ -1,30 +1,110 @@
 import { Composite } from "../Shapes/composite";
 import { Util } from "../Common/util";
 import { Curve } from "../Shapes/curve";
-import { Style } from "../Shapes/shape";
-import { LineStyle } from "../Shapes/polyLine";
+import { Shape, BaseOption, Style } from "../Shapes/shape";
+import { PolyLine } from "../Shapes/polyLine";
+import { BaseShapeOption } from "../option";
 
 
 /**
  * 线段
  */
 export class Line extends Composite {
-    style: Style = new LineStyle();
-    option = {
-        ...this.option,
-        zIndex: 0
-    };
+    start: {x: number, y: number} = { x: 0, y: 0 };
+    end: {x: number, y: number} = { x: 0, y: 0 };
 
-    start: {x: number, y: number};
-    end: {x: number, y: number};
+    constructor(id: string, name: string, opt: BaseShapeOption) {
+        super(id, name, opt);
 
-    constructor(id: string, name: string) {
-        super(id, name);
+        let fromMarker, toMarker;
+
+        // 添加marker
+        if(this.option.markers) {
+            // 若只配置了结尾marker
+            if(typeof this.option.markers === 'string') {
+                toMarker = this.option.markers;
+            }
+            // 配置了两端marker
+            else {
+                fromMarker = this.option.markers[0];
+                toMarker = this.option.markers[1];
+            }
+        }
+
+        this.addSubShape({
+            line: {
+                shapeName: this.option.curveness? 'curve': 'polyLine',
+                init: (option, style) => ({
+                    style: {
+                        stroke: style.fill,
+                        fill: null
+                    }
+                }),
+                draw: (parent: Line, line: PolyLine) => {
+                    let start = parent.start,
+                        end = parent.end;
+
+                    line.path = [ [start.x, start.y], [end.x, end.y] ];
+
+                    if(line instanceof Curve) {
+                        line.controlPoint = line.calcControlPoint(start, end);
+                    }
+                }
+            },
+            fromMarker: fromMarker? {
+                shapeName: fromMarker,
+                init: () => ({
+                    zIndex: 2
+                }),
+                draw: (parent: Line, marker: Shape) => {
+                    let start = parent.start;
+                    
+                    marker.x = start.x;
+                    marker.y = start.y;
+                    marker.rotation = parent.tangentAt(0) + Math.PI;
+
+                    marker.width = parent.getSubShape('line').style.lineWidth + 5;
+                    marker.height = marker.width;
+                }
+            }: null,
+            toMarker: toMarker? {
+                shapeName: toMarker,
+                init: () => ({
+                    zIndex: 2
+                }),
+                draw: (parent: Line, marker: Shape) => {
+                    let end = parent.end;
+                    
+                    marker.x = end.x;
+                    marker.y = end.y;
+                    marker.rotation = parent.tangentAt(1);
+
+                    marker.width = parent.getSubShape('line').style.lineWidth + 5;
+                    marker.height = marker.width;
+                }
+            }: null
+        });
     }
 
-    init() {
-        this.start = { x: 0, y: 0 };
-        this.end = { x: 0, y: 0 };
+    defaultOption(baseOption: BaseOption): BaseOption {
+        return {
+            ...baseOption,
+            // 曲率
+            curveness: 0,
+            // 线段两端图案
+            markers: '',
+            zIndex: 0
+        };
+    }
+
+    defaultStyle(baseStyle: Style): Style {
+        return {
+            ...baseStyle,
+            // 线段平缓程度
+            smooth: 0,
+            // 虚线样式
+            lineDash: null
+        };;
     }
 
     /**
