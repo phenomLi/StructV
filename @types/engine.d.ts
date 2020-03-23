@@ -106,6 +106,4 @@ export declare class Engine<S extends Sources = Sources, P extends EngineOption 
  */
 export declare function RegisterShape(target: {
     new (...arg: any[]): Shape;
-} | {
-    new (...arg: any[]): Shape;
-}[], scope?: string): void;
+}, shapeName: string, scope?: string): void;

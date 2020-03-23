@@ -65,8 +65,6 @@ class Shape {
         // 宽高
         this.width = 0;
         this.height = 0;
-        // 元素
-        this.element = null;
         // 渲染器实例
         this.renderer = null;
         // 父图形（通常指代复合图形Composite）

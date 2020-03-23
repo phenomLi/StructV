@@ -7,7 +7,6 @@ class Curve extends polyLine_1.PolyLine {
     constructor(id, name, opt) {
         super(id, name, opt);
         // 控制点
-        this.prevControlPoint = null;
         this.controlPoint = null;
         // 添加路径动画项
         this.animationsTable = Object.assign({}, this.animationsTable, { path: 'curve' });
@@ -33,7 +32,6 @@ class Curve extends polyLine_1.PolyLine {
     }
     restoreData() {
         super.restoreData();
-        this.prevControlPoint = this.controlPoint;
         this.controlPoint = null;
     }
     createZrenderShape() {

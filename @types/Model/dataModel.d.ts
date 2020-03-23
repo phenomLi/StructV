@@ -3,14 +3,16 @@ import { Engine } from "../engine";
 import { Shape } from "../Shapes/shape";
 import { ViewModel } from "../View/viewModel";
 import { Sources } from "../sources";
+import { ContainerModel } from "./containerModel";
 export declare type ElementContainer = {
     [key: string]: Element[];
 };
 export declare class DataModel {
     private engine;
     private viewModel;
-    private linkHelper;
-    private pointerHelper;
+    private linkModel;
+    private pointerModel;
+    protected containerModel: ContainerModel;
     private bindingInfos;
     private elementList;
     private elementContainer;

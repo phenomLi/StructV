@@ -1,6 +1,6 @@
 import { Renderer, zrenderShape } from "../View/renderer";
 import { BoundingRect } from "../View/boundingRect";
-import { anchorSet } from "../Model/linkHelper";
+import { anchorSet } from "../Model/linkModel";
 import { BaseShapeOption } from "../option";
 export interface BaseOption {
     content: string | string[];
@@ -48,7 +48,6 @@ export declare class Shape {
     option: BaseOption;
     width: number;
     height: number;
-    element: Element;
     renderer: Renderer;
     parentShape: Shape;
     visited: boolean;

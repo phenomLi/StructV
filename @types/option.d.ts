@@ -1,5 +1,5 @@
 import { Style, BaseOption } from "./Shapes/shape";
-import { anchorSet } from "./Model/linkHelper";
+import { anchorSet } from "./Model/linkModel";
 export interface BaseShapeOption extends BaseOption {
     anchors: anchorSet;
     style: Partial<Style>;
@@ -17,11 +17,16 @@ export interface PointerOption {
 export interface LinkOption {
     markers: string | string[];
     curveness: number;
-    contact: [number, number][] | [number, number];
+    contact: [number, number][] | [number, number] | ((linkIndex: number) => [number, number]);
     label: string;
     labelStyle: Partial<Style>;
     style: Partial<Style>;
     show: string | [string, string];
+}
+export interface ContainerOption extends BaseOption {
+    style: Partial<Style>;
+    padding: number | [number, number, number, number];
+    anchors: (w: number, h: number, childrenLength: number) => anchorSet;
 }
 export declare type ElementsOption = {
     [p: string]: string;
@@ -33,6 +38,9 @@ export interface LayoutOption {
     };
     link: {
         [k: string]: Partial<LinkOption>;
+    };
+    container: {
+        [k: string]: Partial<ContainerOption>;
     };
     autoAdjust: boolean;
 }

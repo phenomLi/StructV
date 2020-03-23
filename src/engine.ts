@@ -241,20 +241,12 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
 /**
  * 注册一个或多个图形
  */
-export function RegisterShape(target: { new(...arg): Shape } | { new(...arg): Shape }[], scope: string = null) {
-    if(Array.isArray(target)) {
-        target.map(item => RegisterShape(item));
-    }
-    else {
-        let className = Util.getClassName(target),
-        shapeName = className[0].toLocaleLowerCase() + className.substring(1);
-
-        Engine.ShapesTable[shapeName] = {
-            constructor: target,
-            scope
-        };
-        target.prototype.name = shapeName;
-    }
+export function RegisterShape(target: { new(...arg): Shape }, shapeName: string, scope: string = null) {
+    Engine.ShapesTable[shapeName] = {
+        constructor: target,
+        scope
+    };
+    target.prototype.name = shapeName;
 }
 
 

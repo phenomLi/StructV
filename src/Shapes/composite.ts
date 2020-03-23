@@ -20,7 +20,7 @@ export type subShapeInfo = {
 export class Composite extends Shape {
     // 类型为复合图形
     type = 'composite';
-    // 组成复合图形的子图形
+    // 组成复合图形的子图形`
     subShapes: subShapeInfo[] = [];
 
     constructor(id: string, name: string, opt) {

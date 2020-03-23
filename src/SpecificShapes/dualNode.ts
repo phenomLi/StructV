@@ -1,6 +1,6 @@
 import { Node } from "./node";
 import { Rect } from "../Shapes/rect";
-import { anchorSet } from "../Model/linkHelper";
+import { anchorSet } from "../Model/linkModel";
 import { BaseShapeOption } from "../option";
 
 

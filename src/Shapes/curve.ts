@@ -9,7 +9,6 @@ import { BaseShapeOption } from "../option";
 
 export class Curve extends PolyLine {
     // 控制点
-    prevControlPoint: [number, number] = null;
     controlPoint: [number, number] = null;
 
     constructor(id: string, name: string, opt: BaseShapeOption) {
@@ -47,7 +46,6 @@ export class Curve extends PolyLine {
 
     restoreData() {
         super.restoreData();
-        this.prevControlPoint = this.controlPoint;
         this.controlPoint = null;
     }
 

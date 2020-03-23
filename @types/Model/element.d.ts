@@ -6,6 +6,7 @@ export declare class Element<T extends SourceElement = SourceElement> {
     id: any;
     elementId: string;
     name: string;
+    type: string;
     x: number;
     y: number;
     rotation: number;
@@ -34,14 +35,14 @@ export declare class Element<T extends SourceElement = SourceElement> {
      * @param linkStyle
      * @param linkName
      */
-    onLink(targetEle: Element, linkStyle: LinkStyle, linkName: string): void;
+    onLink(targetEle: Element, linkStyle: Style, linkName: string): void;
     /**
      * 当指向结点时触发
      * @param pointerStyle
      * @param pointerName
      * @param pointerValue
      */
-    onRefer(pointerStyle: LinkStyle, pointerName: string, pointerValue: string | string[]): void;
+    onRefer(pointerStyle: Style, pointerName: string, pointerValue: string | string[]): void;
     /**
      * 当元素发生变化
      * @param type

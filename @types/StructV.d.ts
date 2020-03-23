@@ -13,7 +13,7 @@ export declare const SV: {
         sign(number: number): number;
         getPathCenter(path: [number, number][]): [number, number];
         assert(condition: boolean, errorText: string): void;
-        anchor2position(x: number, y: number, width: number, height: number, rotation: number, anchor: import("./Model/linkHelper").anchor, offset?: number): [number, number];
+        anchor2position(x: number, y: number, width: number, height: number, rotation: number, anchor: import("./Model/linkModel").anchor, offset?: number): [number, number];
         getClassName(classConstructor: any): string;
         textParser(text: string): string | string[];
     };

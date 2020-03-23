@@ -1,7 +1,7 @@
 import { Renderer, zrenderShape } from "../View/renderer";
 import { Util } from "../Common/util";
 import { BoundingRect, Bound } from "../View/boundingRect";
-import { anchorSet } from "../Model/linkHelper";
+import { anchorSet } from "../Model/linkModel";
 import { BaseShapeOption } from "../option";
 
  
@@ -108,8 +108,6 @@ export class Shape {
     // 宽高
     width: number = 0;
     height: number = 0;
-    // 元素
-    element: Element = null;
     // 渲染器实例
     renderer: Renderer = null;
     // 父图形（通常指代复合图形Composite）

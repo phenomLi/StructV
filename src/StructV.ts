@@ -20,22 +20,19 @@ import { TwoCellBlock } from "./SpecificShapes/twoCellBlock";
 
 
 // 注册图形
-RegisterShape([
-    Composite, 
-    Circle, 
-    Isogon, 
-    PolyLine, 
-    Rect, 
-    Text, 
-    Arrow, 
-    Curve,
-    
-    Line, 
-    Node,
-    DualNode,
-    TwoCellBlock
-]);
+RegisterShape(Composite, 'composite');
+RegisterShape(Circle, 'circle');
+RegisterShape(Isogon, 'isogon');
+RegisterShape(PolyLine, 'polyLine');
+RegisterShape(Rect, 'rect');
+RegisterShape(Text, 'text');
+RegisterShape(Arrow, 'arrow');
+RegisterShape(Curve, 'curve');
 
+RegisterShape(Line, 'line');
+RegisterShape(Node, 'node');
+RegisterShape(DualNode, 'dualNode');
+RegisterShape(TwoCellBlock, 'twoCellBlock');
 
 
 

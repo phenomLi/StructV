@@ -1,7 +1,7 @@
 import { Shape } from "./../Shapes/shape";
 import { AnimationOption } from '../option';
 import { shapeContainer } from "./viewModel";
-import { Container } from "./container";
+import { ViewContainer } from "./viewContainer";
 import { PolyLine } from "../Shapes/polyLine";
 import { Curve } from "../Shapes/curve";
 export declare type zrenderShape = any;
@@ -127,7 +127,7 @@ export declare class Animations {
 export declare class Renderer {
     static zrender: any;
     private zr;
-    globalContainer: Container;
+    globalContainer: ViewContainer;
     private option;
     animations: Animations;
     private animatePropsQueue;

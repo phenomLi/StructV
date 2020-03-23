@@ -3,7 +3,6 @@ import { zrenderShape } from "../View/renderer";
 import { BaseOption } from "./shape";
 import { BaseShapeOption } from "../option";
 export declare class Curve extends PolyLine {
-    prevControlPoint: [number, number];
     controlPoint: [number, number];
     constructor(id: string, name: string, opt: BaseShapeOption);
     defaultOption(baseOption: BaseOption): BaseOption;

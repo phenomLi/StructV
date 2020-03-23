@@ -2,13 +2,13 @@ import { Shape, mountState } from "./../Shapes/shape";
 import { AnimationOption } from '../option';
 import { shapeContainer } from "./viewModel";
 import { Util } from "../Common/util";
-import { Engine } from "../engine";
 import { Text } from "../Shapes/text";
-import { Container } from "./container";
+import { ViewContainer } from "./viewContainer";
 import { PolyLine } from "../Shapes/polyLine";
 import * as zrender from 'zrender';
 import { Curve } from "../Shapes/curve";
 import { Bound } from "./boundingRect";
+import { Composite } from "../Shapes/composite";
 
 
 export type zrenderShape = any;
@@ -185,7 +185,7 @@ export class Renderer {
     // zrender实例
     private zr: any = null;
     // 全局图形容器
-    public globalContainer: Container;
+    public globalContainer: ViewContainer;
     // 配置项
     private option: AnimationOption;
     // 动画表
@@ -213,7 +213,7 @@ export class Renderer {
     constructor(container: HTMLElement, opt: AnimationOption) {
         this.zr = Renderer.zrender.init(container);
         this.animations = new Animations(opt);
-        this.globalContainer = new Container(this);
+        this.globalContainer = new ViewContainer(this);
         this.globalContainer.setOrigin(container.offsetWidth / 2, container.offsetHeight / 2);
         this.option = opt;
 

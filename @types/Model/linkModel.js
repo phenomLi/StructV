@@ -6,7 +6,7 @@ const vector_1 = require("../Common/vector");
 /**
  * 连接处理器
  */
-class LinkHelper {
+class LinkModel {
     constructor(engine, dataModel, viewModel) {
         this.engine = engine;
         this.linkPairs = [];
@@ -14,6 +14,46 @@ class LinkHelper {
         this.labelAvoidLevel = 2;
         this.dataModel = dataModel;
         this.viewModel = viewModel;
+    }
+    /**
+     * 构建连接模型
+     * @param elements
+     * @param elementList
+     * @param linkOptions
+     */
+    constructLinks(elements, elementList, linkOptions) {
+        this.buildLinkRelation(elements, elementList);
+        Object.keys(linkOptions).map(linkName => {
+            let linkOption = linkOptions[linkName];
+            // 遍历所有元素，创建连接对信息到linkPairs队列
+            for (let i = 0; i < elementList.length; i++) {
+                let ele = elementList[i];
+                // 若没有连接字段的结点则跳过
+                if (!ele[linkName])
+                    continue;
+                if (Array.isArray(ele[linkName])) {
+                    ele[linkName].map((item, index) => {
+                        if (!item)
+                            return;
+                        this.generateLinkPair(ele, item, linkOption, linkName, index);
+                    });
+                }
+                else {
+                    this.generateLinkPair(ele, ele[linkName], linkOption, linkName);
+                }
+            }
+        });
+    }
+    /**
+     * 根据配置项，更新连接图形
+     * @param linkOptions
+     * @param elementList
+     */
+    updateLinkShape() {
+        // 遍历连接对队列，进行元素间的连接绑定
+        for (let i = 0; i < this.linkPairs.length; i++) {
+            this.linkElement(this.linkPairs[i]);
+        }
     }
     /**
      * 根据源数据连接信息，将sourceElement替换为Element
@@ -68,76 +108,41 @@ class LinkHelper {
         });
     }
     /**
-     * 根据配置项，绑定连接图形
-     * @param linkOptions
+     * 生成连接对
+     * @param element
+     * @param target
+     * @param linkOption
      * @param linkName
-     * @param elementList
+     * @param index
      */
-    bindLinkShape(linkOptions, elementList) {
-        Object.keys(linkOptions).map(linkName => {
-            let linkOption = linkOptions[linkName];
-            // 遍历所有元素，创建连接对信息到linkPairs队列
-            for (let i = 0; i < elementList.length; i++) {
-                let ele = elementList[i], contact = null;
-                // 若没有连接字段的结点则跳过
-                if (!ele[linkName])
-                    continue;
-                if (Array.isArray(ele[linkName])) {
-                    ele[linkName].map((item, index) => {
-                        if (!item)
-                            return;
-                        contact = this.contactSolver(linkOption.contact, index);
-                        this.linkPairs.push({
-                            linkName,
-                            linkShape: null,
-                            ele: ele,
-                            target: item,
-                            anchorPair: contact ? [this.getElementAnchor(ele, contact[0]), this.getElementAnchor(item, contact[1])] : contact,
-                            anchorPosPair: null,
-                            label: this.labelSolver(linkOption.label, ele, item, index),
-                            index,
-                            dynamic: contact ? false : true
-                        });
-                    });
-                }
-                else {
-                    let targetEle = ele[linkName];
-                    contact = this.contactSolver(linkOption.contact);
-                    this.linkPairs.push({
-                        linkName,
-                        linkShape: null,
-                        ele: ele,
-                        target: targetEle,
-                        anchorPair: contact ?
-                            [
-                                this.getElementAnchor(ele, contact[0]),
-                                this.getElementAnchor(targetEle, contact[1])
-                            ] : contact,
-                        anchorPosPair: null,
-                        label: this.labelSolver(linkOption.label, ele, targetEle),
-                        index: null,
-                        dynamic: contact ? false : true
-                    });
-                }
-            }
+    generateLinkPair(element, target, linkOption, linkName, index) {
+        let contact = this.contactSolver(linkOption.contact, index), linkShape = this.viewModel.createShape(`${element.elementId}-${target.elementId}`, 'line', linkOption);
+        this.linkPairs.push({
+            linkName,
+            linkShape,
+            ele: element,
+            target,
+            anchorPair: contact ? [
+                this.getElementAnchor(element, contact[0]), this.getElementAnchor(target, contact[1])
+            ] : contact,
+            anchorPosPair: null,
+            label: this.labelSolver(linkOption.label, element, target, index),
+            index,
+            dynamic: contact ? false : true
         });
-        // 遍历连接对队列，进行元素间的连接绑定
-        for (let i = 0; i < this.linkPairs.length; i++) {
-            this.linkElement(this.linkPairs[i]);
-        }
+        element.onLink(target, linkShape.style, linkName);
+        target.onLink(null, linkShape.style, linkName);
     }
     /**
      * 连接两结点
      * @param linkPair
      */
     linkElement(linkPair) {
-        let linkOption = this.engine.layoutOption.link[linkPair.linkName], element = linkPair.ele, target = linkPair.target, label = linkPair.label, linkShape = null, labelShape = null;
+        let linkOption = this.engine.layoutOption.link[linkPair.linkName], element = linkPair.ele, target = linkPair.target, label = linkPair.label, linkShape = linkPair.linkShape, labelShape = null, start, end;
         // 若锚点越界（如只有3个锚点，contact却有大于3的值），退出
         if (linkPair.anchorPair && (linkPair.anchorPair[0] === undefined || linkPair.anchorPair[1] === undefined)) {
             return;
         }
-        linkShape = this.viewModel.createShape(`${element.elementId}-${target.elementId}`, 'line', linkOption);
-        linkPair.linkShape = linkShape;
         if (label) {
             labelShape = this.viewModel.createShape(`${element.elementId}-${target.elementId}-label`, 'text', {
                 show: linkOption.show,
@@ -146,32 +151,26 @@ class LinkHelper {
             });
             this.labelList.push(labelShape);
         }
-        // 该结点绑定该连线图形
-        this.dataModel.bind([element, target], [linkShape, labelShape], (eles, shapes) => {
-            let ele = eles[0], targetEle = eles[1], linkShape = shapes[0], labelShape = shapes[1], start, end;
-            // 若使用动态锚点，获取动态锚点
-            if (linkPair.dynamic) {
-                [start, end] = this.getDynamicAnchorPos(ele, targetEle);
-            }
-            // 若已配置有连接点，使用连接点
-            else {
-                start = this.getAnchorPos(ele, linkPair.anchorPair[0]),
-                    end = this.getAnchorPos(targetEle, linkPair.anchorPair[1]);
-            }
-            // 若发现该连接有冲突，则进行处理，重新计算start，end坐标
-            [start, end] = this.anchorAvoid([start, end]);
-            linkPair.anchorPosPair = [start, end];
-            linkShape.start.x = start[0];
-            linkShape.start.y = start[1];
-            linkShape.end.x = end[0];
-            linkShape.end.y = end[1];
-            // 若有标签，标签避让检测
-            if (labelShape) {
-                this.labelAvoid(labelShape, linkShape, [0, 1], 0);
-            }
-        });
-        element.onLink(target, linkShape.style, linkPair.linkName);
-        target.onLink(null, linkShape.style, linkPair.linkName);
+        // 若使用动态锚点，获取动态锚点
+        if (linkPair.dynamic) {
+            [start, end] = this.getDynamicAnchorPos(element, target);
+        }
+        // 若已配置有连接点，使用连接点
+        else {
+            start = this.getAnchorPos(element, linkPair.anchorPair[0]),
+                end = this.getAnchorPos(target, linkPair.anchorPair[1]);
+        }
+        // 若发现该连接有冲突，则进行处理，重新计算start，end坐标
+        [start, end] = this.anchorAvoid([start, end]);
+        linkPair.anchorPosPair = [start, end];
+        linkShape.start.x = start[0];
+        linkShape.start.y = start[1];
+        linkShape.end.x = end[0];
+        linkShape.end.y = end[1];
+        // 若有标签，标签避让检测
+        if (labelShape) {
+            this.labelAvoid(labelShape, linkShape, [0, 1], 0);
+        }
     }
     /**
      * 处理连接点
@@ -182,6 +181,9 @@ class LinkHelper {
         if (contacts) {
             if (Array.isArray(contacts[0])) {
                 return index === undefined ? contacts[0] : contacts[index];
+            }
+            else if (typeof contacts === 'function' && index !== undefined) {
+                return contacts(index);
             }
             else {
                 return contacts;
@@ -330,4 +332,4 @@ class LinkHelper {
         this.labelList.length = 0;
     }
 }
-exports.LinkHelper = LinkHelper;
+exports.LinkModel = LinkModel;

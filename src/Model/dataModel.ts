@@ -1,12 +1,12 @@
 import { Element } from "./element";
 import { Engine } from "../engine";
 import { Shape } from "../Shapes/shape";
-import { Composite } from "../Shapes/composite";
 import { ViewModel } from "../View/viewModel";
 import { SourceElement, Sources } from "../sources";
 import { Util } from "../Common/util";
-import { LinkHelper } from "./linkHelper";
-import { PointerHelper } from "./pointerHelper";
+import { LinkModel } from "./linkModel";
+import { PointerModel } from "./pointerModel";
+import { ContainerModel } from "./containerModel";
 
 
 
@@ -25,10 +25,12 @@ type bindingInfo = {
 export class DataModel {
     // 视图模型管理器
     private viewModel: ViewModel;
-    // 连接处理器
-    private linkHelper: LinkHelper;
-    // 指针处理器
-    private pointerHelper: PointerHelper;
+    // 连接处理类
+    private linkModel: LinkModel;
+    // 指针处理类
+    private pointerModel: PointerModel;
+    // 容器处理类
+    protected containerModel: ContainerModel;
     // 图形绑定队列
     private bindingInfos: bindingInfo[] = [];
     // 元素队列
@@ -40,8 +42,9 @@ export class DataModel {
         this.engine = engine;
         this.viewModel = viewModel;
 
-        this.linkHelper = new LinkHelper(engine, this, viewModel);
-        this.pointerHelper = new PointerHelper(engine, this, viewModel);
+        this.linkModel = new LinkModel(engine, this, viewModel);
+        this.pointerModel = new PointerModel(engine, this, viewModel);
+        this.containerModel = new ContainerModel(engine, this, viewModel);
     }
 
     /**
@@ -66,9 +69,19 @@ export class DataModel {
             });
         }
 
-        // 若存在连接，则处理结点间的连接
+        // 构建连接模型
         if(this.engine.layoutOption.link) {
-            this.linkHelper.buildLinkRelation(this.elementContainer, this.elementList);
+            this.linkModel.constructLinks(this.elementContainer, this.elementList, this.engine.layoutOption.link);
+        }
+
+        // 构建容器模型
+        if(this.engine.layoutOption.container) {
+            this.containerModel.constructContainers(this.elementContainer, this.engine.layoutOption.container);
+        }
+
+        // 构建指针模型
+        if(this.engine.layoutOption.pointer) {
+            this.pointerModel.constructPointers(this.elementList, this.engine.layoutOption.pointer);
         }
     }
 
@@ -88,23 +101,13 @@ export class DataModel {
                 });
             });
         });
-
-        
-        // 若存在指针，则处理指针
-        if(this.engine.layoutOption.pointer) {
-            this.pointerHelper.bindPointerShape(this.engine.layoutOption.pointer, this.elementList);
-        }
-
-        // 若声明连接，则进行连接绑定
-        if(this.engine.layoutOption.link) {
-            this.linkHelper.bindLinkShape(this.engine.layoutOption.link, this.elementList);
-        }
     }
 
     /**
      * 响应绑定（更新绑定的shapes）
      */
     emitShapes() {
+        // 更新与元素绑定的图形
         this.bindingInfos.map(bindingItem => {
             bindingItem.bindFn(
                 bindingItem.element, 
@@ -112,30 +115,40 @@ export class DataModel {
             );
         });
 
-        this.bindingInfos.map(bindingItem => {
-            // 若绑定的是多个图形
-            if(Array.isArray(bindingItem.shape)) {
-                bindingItem.shape.map(item => {
-                    // 若某个图形为复合图形，则更新其子图形
-                    if(item instanceof Composite) {
-                        item.updateSubShapes();
-                    }
-                });
-            }
-            else {
-                // 若某个图形为复合图形，则更新其子图形
-                if(bindingItem.shape instanceof Composite) {
-                    bindingItem.shape.updateSubShapes();
-                }
-            }
-        });
+        if(this.engine.layoutOption.container) {
+            this.containerModel.updateContainerShape();
+        }
+
+        // 若声明连接，则进行连接绑定
+        if(this.engine.layoutOption.link) {
+            this.linkModel.updateLinkShape();
+        }
+
+        // 若存在指针，则处理指针
+        if(this.engine.layoutOption.pointer) {
+            this.pointerModel.updatePointerShape();
+        }
     }
 
     /**
      * 获取Elements
      */
     getElements(): ElementContainer {
-        return this.elementContainer;
+        // 筛去container元素，不暴露到engine的render方法（不允许用户修改container元素）
+        if(this.engine.layoutOption.container) {
+            let elementContainer: ElementContainer = {};
+
+            Object.keys(this.elementContainer).map(key => {
+                if(!this.engine.layoutOption.container[key]) {
+                    elementContainer[key] = this.elementContainer[key];
+                }
+            });
+
+            return elementContainer;
+        }
+        else {
+            return this.elementContainer;
+        }
     }
 
     /**
@@ -155,34 +168,42 @@ export class DataModel {
         }
         
         ele = new eleConstructor();
+
+        ele.applySourceElement(sourceElement, this.engine.sourcesField? this.engine.sourcesField[elementName]: null);
+        ele.elementId = elementId;
+        ele.name = elementName;
         
-        let shapeOption = this.engine.layoutOption[elementName], 
+        let shapeOption = null, 
             contents = null,
             shapeName = null, 
             shape = null;
 
-        shapeName = typeof this.engine.elementsOption === 'object'?
-            this.engine.elementsOption[elementName]:
-            this.engine.elementsOption;
-        
-        ele.applySourceElement(sourceElement, this.engine.sourcesField? this.engine.sourcesField[elementName]: null);
-        ele.elementId = elementId;
-        ele.name = elementName;
+        // 若是容器元素
+        if(this.engine.layoutOption.container && this.engine.layoutOption.container[elementName]) {
+            ele.type = 'container';
+            shapeOption = this.engine.layoutOption.container[elementName];
 
-        contents = Array.isArray(shapeOption.content)? 
-            shapeOption.content.map(item => this.parserElementContent(ele, item)):
-            this.parserElementContent(ele, shapeOption.content);
+            shape = this.viewModel.createShape(ele.elementId, 'rect', shapeOption);
+        }
+        // 普通元素
+        else {
+            shapeOption = this.engine.layoutOption[elementName];
+            shapeName = typeof this.engine.elementsOption === 'object'?
+                this.engine.elementsOption[elementName]:
+                this.engine.elementsOption;
 
-        shape = this.viewModel.createShape(ele.elementId, shapeName, { ...shapeOption, content: contents });
-        shape.element = ele;
+            contents = Array.isArray(shapeOption.content)? 
+                shapeOption.content.map(item => this.parserElementContent(ele, item)):
+                this.parserElementContent(ele, shapeOption.content);
+
+            shape = this.viewModel.createShape(ele.elementId, shapeName, { ...shapeOption, content: contents });
+        }
 
         // 初始化元素数据
         ele.shape = shape;
         ele.rotation = shape.rotation;
         ele.style = shape.style;
         ele.layoutOption = this.engine.layoutOption;
-        // 初始化元素自定义数据
-        ele.init && ele.init();
       
         this.elementList.push(ele);
 
@@ -245,7 +266,9 @@ export class DataModel {
         this.bindingInfos.length = 0;
         this.elementContainer = {};
 
-        this.linkHelper.clear();
+        this.linkModel.clear();
+        this.pointerModel.clear();
+        this.containerModel.clear();
     }
 
     /**

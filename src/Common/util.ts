@@ -1,5 +1,5 @@
 import { Vector } from "./vector";
-import { anchor } from "../Model/linkHelper";
+import { anchor } from "../Model/linkModel";
 
 
 

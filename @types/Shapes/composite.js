@@ -9,7 +9,7 @@ class Composite extends shape_1.Shape {
         super(id, name, opt);
         // 类型为复合图形
         this.type = 'composite';
-        // 组成复合图形的子图形
+        // 组成复合图形的子图形`
         this.subShapes = [];
     }
     /**

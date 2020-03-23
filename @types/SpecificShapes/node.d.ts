@@ -1,6 +1,6 @@
 import { Composite } from "../Shapes/composite";
 import { Style } from "../Shapes/shape";
-import { anchorSet } from "../Model/linkHelper";
+import { anchorSet } from "../Model/linkModel";
 import { BaseShapeOption } from "../option";
 /**
  * 单侧（右）连接结点

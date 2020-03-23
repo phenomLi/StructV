@@ -175,17 +175,11 @@ exports.Engine = Engine;
 /**
  * 注册一个或多个图形
  */
-function RegisterShape(target, scope = null) {
-    if (Array.isArray(target)) {
-        target.map(item => RegisterShape(item));
-    }
-    else {
-        let className = util_1.Util.getClassName(target), shapeName = className[0].toLocaleLowerCase() + className.substring(1);
-        Engine.ShapesTable[shapeName] = {
-            constructor: target,
-            scope
-        };
-        target.prototype.name = shapeName;
-    }
+function RegisterShape(target, shapeName, scope = null) {
+    Engine.ShapesTable[shapeName] = {
+        constructor: target,
+        scope
+    };
+    target.prototype.name = shapeName;
 }
 exports.RegisterShape = RegisterShape;

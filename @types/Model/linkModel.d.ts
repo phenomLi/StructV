@@ -22,7 +22,7 @@ export interface LinkPair {
 /**
  * 连接处理器
  */
-export declare class LinkHelper {
+export declare class LinkModel {
     private engine;
     private dataModel;
     private viewModel;
@@ -31,20 +31,35 @@ export declare class LinkHelper {
     private labelAvoidLevel;
     constructor(engine: Engine, dataModel: DataModel, viewModel: ViewModel);
     /**
+     * 构建连接模型
+     * @param elements
+     * @param elementList
+     * @param linkOptions
+     */
+    constructLinks(elements: ElementContainer, elementList: Element[], linkOptions: {
+        [key: string]: Partial<LinkOption>;
+    }): void;
+    /**
+     * 根据配置项，更新连接图形
+     * @param linkOptions
+     * @param elementList
+     */
+    updateLinkShape(): void;
+    /**
      * 根据源数据连接信息，将sourceElement替换为Element
      * @param elements
      * @param elementList
      */
-    buildLinkRelation(elements: ElementContainer, elementList: Element[]): void;
+    private buildLinkRelation;
     /**
-     * 根据配置项，绑定连接图形
-     * @param linkOptions
+     * 生成连接对
+     * @param element
+     * @param target
+     * @param linkOption
      * @param linkName
-     * @param elementList
+     * @param index
      */
-    bindLinkShape(linkOptions: {
-        [key: string]: Partial<LinkOption>;
-    }, elementList: Element[]): void;
+    private generateLinkPair;
     /**
      * 连接两结点
      * @param linkPair

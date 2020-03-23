@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const shape_1 = require("./../Shapes/shape");
 const util_1 = require("../Common/util");
 const text_1 = require("../Shapes/text");
-const container_1 = require("./container");
+const viewContainer_1 = require("./viewContainer");
 const zrender = require("zrender");
 const boundingRect_1 = require("./boundingRect");
 /**
@@ -169,7 +169,7 @@ class Renderer {
         this.isLastUpdateInterrupt = false;
         this.zr = Renderer.zrender.init(container);
         this.animations = new Animations(opt);
-        this.globalContainer = new container_1.Container(this);
+        this.globalContainer = new viewContainer_1.ViewContainer(this);
         this.globalContainer.setOrigin(container.offsetWidth / 2, container.offsetHeight / 2);
         this.option = opt;
         this.containerWidth = container.offsetWidth;

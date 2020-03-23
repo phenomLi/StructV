@@ -131,6 +131,17 @@ export class ViewModel {
     }
 
     /**
+     * 更新复合图形
+     */
+    private updateComposite() {
+        this.shapeList.map(shape => {
+            if(shape instanceof Composite) {
+                shape.updateSubShapes();
+            }
+        });
+    }
+
+    /**
      * 寻找可复用的Shape
      * @param id
      * @param shapeName
@@ -174,6 +185,9 @@ export class ViewModel {
      * 渲染view
      */
     renderShapes() {
+        // 更新所有复合图形
+        this.updateComposite();
+
         // 如果进行这次更新时上次更新还未完成，跳过上次更新的动画
         if(this.engine.isViewUpdating()) {
             this.renderer.skipUpdateZrenderShapes(() => {

@@ -1,5 +1,5 @@
 import { Node } from "./node";
-import { anchorSet } from "../Model/linkHelper";
+import { anchorSet } from "../Model/linkModel";
 import { BaseShapeOption } from "../option";
 /**
  * 双侧连接结点

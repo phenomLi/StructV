@@ -4,6 +4,7 @@ const boundingRect_1 = require("../View/boundingRect");
 class Element {
     constructor() {
         this.name = 'element';
+        this.type = 'element';
         this.x = 0;
         this.y = 0;
         this.rotation = 0;

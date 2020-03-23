@@ -1,5 +1,5 @@
 import { Style, BaseOption } from "./Shapes/shape";
-import { anchorSet } from "./Model/linkHelper";
+import { anchorSet } from "./Model/linkModel";
 
 
 // 图形配置项
@@ -28,11 +28,18 @@ export interface PointerOption {
 export interface LinkOption {
     markers: string | string[];
     curveness: number;
-    contact: [number, number][] | [number, number];   
+    contact: [number, number][] | [number, number] | ((linkIndex: number) => [number, number]);   
     label: string;
     labelStyle: Partial<Style>;                  
     style: Partial<Style>;
     show: string | [string, string];
+}
+
+// 容器图形配置项
+export interface ContainerOption extends BaseOption {
+    style: Partial<Style>;
+    padding: number | [number, number, number, number];
+    anchors: (w: number, h: number, childrenLength: number) => anchorSet;
 }
 
 
@@ -49,6 +56,8 @@ export interface LayoutOption {
     pointer: { [k: string]: Partial<PointerOption> };
     // 连接线图形配置
     link: { [k: string]: Partial<LinkOption> };
+    // 容器图形配置项
+    container: { [k: string]: Partial<ContainerOption> };
     // 是否自动将可视图形移到画布中央
     autoAdjust: boolean;
 }

@@ -38,6 +38,10 @@ export declare class ViewModel {
      */
     removeShape(shape: Shape): void;
     /**
+     * 更新复合图形
+     */
+    private updateComposite;
+    /**
      * 寻找可复用的Shape
      * @param id
      * @param shapeName

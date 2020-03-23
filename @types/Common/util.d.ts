@@ -1,4 +1,4 @@
-import { anchor } from "../Model/linkHelper";
+import { anchor } from "../Model/linkModel";
 /**
  * 工具函数
  */
