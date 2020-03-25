@@ -17,8 +17,19 @@ class Text extends shape_1.Shape {
             textBorderRadius: 0 });
     }
     /**
+     * 更新文本尺寸
+     * - 因为文本图形比较特殊，一开始便创建了zrender实例，所以需要在后期单独更新尺寸
+     * @param zrenderShape
+     */
+    updateTextSize(zrenderShape) {
+        let bound = zrenderShape.getBoundingRect();
+        this.width = bound.width;
+        this.height = bound.height;
+    }
+    /**
      * 更新文本样式
      * - 因为文本图形比较特殊，一开始便创建了zrender实例，所以需要在后期单独更新样式
+     * @param zrenderShape
      */
     updateText(zrenderShape) {
         zrenderShape.attr('position', [this.x, this.y]);
@@ -31,10 +42,8 @@ class Text extends shape_1.Shape {
             style: this.style,
             z: this.option.zIndex
         });
+        this.updateTextSize(zrenderShape);
         this.updateText(zrenderShape);
-        let bound = zrenderShape.getBoundingRect();
-        this.width = bound.width;
-        this.height = bound.height;
         return zrenderShape;
     }
 }

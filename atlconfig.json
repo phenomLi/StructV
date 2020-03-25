@@ -2,9 +2,7 @@
     "compilerOptions": {
         "target": "ES2015",
         "module": "commonJS",
-        "experimentalDecorators": true,
-        "removeComments": true,
-        "sourceMap": true
+        "removeComments": true
     },
 	"exclude": [	
 		"node_modules"

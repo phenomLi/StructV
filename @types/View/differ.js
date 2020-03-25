@@ -7,7 +7,8 @@ var patchType;
     patchType[patchType["REMOVE"] = 1] = "REMOVE";
     patchType[patchType["POSITION"] = 2] = "POSITION";
     patchType[patchType["ROTATION"] = 3] = "ROTATION";
-    patchType[patchType["STYLE"] = 4] = "STYLE";
+    patchType[patchType["SIZE"] = 4] = "SIZE";
+    patchType[patchType["STYLE"] = 5] = "STYLE";
 })(patchType = exports.patchType || (exports.patchType = {}));
 class Differ {
     /**
@@ -58,6 +59,14 @@ class Differ {
         if (oldShape.prevRotation !== newShape.rotation) {
             patchList.push({
                 type: patchType.ROTATION,
+                newShape,
+                oldShape
+            });
+        }
+        // 比较尺寸
+        if (oldShape.prevWidth !== newShape.width || oldShape.prevHeight !== newShape.height) {
+            patchList.push({
+                type: patchType.SIZE,
                 newShape,
                 oldShape
             });
@@ -172,19 +181,19 @@ class Differ {
                 }
                 case patchType.POSITION: {
                     if (newShape instanceof polyLine_1.PolyLine && oldShape instanceof polyLine_1.PolyLine) {
-                        oldShape.path = newShape.path;
                         oldShape.updateZrenderShape('path', true);
                     }
                     else {
-                        oldShape.x = newShape.x;
-                        oldShape.y = newShape.y;
                         oldShape.updateZrenderShape('position', true);
                     }
                     break;
                 }
                 case patchType.ROTATION: {
-                    oldShape.rotation = newShape.rotation;
                     oldShape.updateZrenderShape('rotation', true);
+                    break;
+                }
+                case patchType.SIZE: {
+                    oldShape.updateZrenderShape('size', true);
                     break;
                 }
                 case patchType.STYLE: {

@@ -77,6 +77,9 @@ export class Shape {
     visible: boolean = false;
     // 旋转
     rotation: number = 0;
+    // 宽高
+    width: number = 0;
+    height: number = 0;
     // 样式
     style: Style = null;
 
@@ -84,6 +87,8 @@ export class Shape {
     prevY: number = 0;
     prevVisible: boolean = false;
     prevRotation: number = 0;
+    prevWidth: number = 0;
+    prevHeight: number = 0;
     prevStyle: Style = null;
 
     // ------------------------------------
@@ -105,9 +110,6 @@ export class Shape {
         zIndex: 1,
         show: 'scale'
     };
-    // 宽高
-    width: number = 0;
-    height: number = 0;
     // 渲染器实例
     renderer: Renderer = null;
     // 父图形（通常指代复合图形Composite）
@@ -123,6 +125,7 @@ export class Shape {
         rotation: 'rotation',
         show: 'scale',
         hide: 'scale',
+        size: 'size',
         style: 'style'
     };
 
@@ -188,11 +191,15 @@ export class Shape {
         this.prevY = this.y;
         this.prevRotation = this.rotation;
         this.prevVisible = this.visible;
+        this.prevWidth = this.width;
+        this.prevHeight = this.height;
         this.prevStyle = this.style;
 
         this.x = 0;
         this.y = 0;
         this.rotation = 0;
+        this.width = 0;
+        this.height = 0;
         this.visible = false;
         this.style = this.defaultStyle(this.baseStyle);
     }
@@ -274,10 +281,10 @@ export class Shape {
     updateZrenderShape(name: string, animation: boolean = false, fn?: Function) {
         if(this.zrenderShape === null) return;
 
-        let prop =  this.renderer.animations[this.animationsTable[name]](this);
+        let props = this.renderer.getAnimationProps(this, this.animationsTable[name]);
 
         // 保存回调函数
-        if(fn) prop['callback'] = fn;
+        if(fn) props['callback'] = fn;
 
         // 复合图形修改属性/进行动画前要先修正origin
         if(this.type === 'composite' || this.name === 'polyLine') {
@@ -285,7 +292,7 @@ export class Shape {
             this.zrenderShape.attr('origin', [bound.x + bound.width / 2, bound.y + bound.height / 2]);
         }
 
-        this.renderer.setAttribute(this.zrenderShape, prop, animation);
+        this.renderer.setAttribute(this.zrenderShape, props, animation);
     }
 
     /**

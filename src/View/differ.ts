@@ -7,6 +7,7 @@ export enum patchType {
     REMOVE,
     POSITION,
     ROTATION,
+    SIZE,
     STYLE
 }
 
@@ -75,6 +76,15 @@ export class Differ {
             patchList.push({
                 type: patchType.ROTATION,
                 newShape, 
+                oldShape
+            });
+        }
+
+        // 比较尺寸
+        if(oldShape.prevWidth !== newShape.width || oldShape.prevHeight !== newShape.height) {
+            patchList.push({
+                type: patchType.SIZE,
+                newShape,
                 oldShape
             });
         }
@@ -211,20 +221,21 @@ export class Differ {
 
                 case patchType.POSITION: {
                     if(newShape instanceof PolyLine && oldShape instanceof PolyLine) {
-                        oldShape.path = newShape.path;
                         oldShape.updateZrenderShape('path', true);
                     } 
                     else {
-                        oldShape.x = newShape.x;
-                        oldShape.y = newShape.y;
                         oldShape.updateZrenderShape('position', true);
                     }
                     break;
                 }
 
                 case patchType.ROTATION: {
-                    oldShape.rotation = newShape.rotation;
                     oldShape.updateZrenderShape('rotation', true);
+                    break;
+                }
+
+                case patchType.SIZE: {
+                    oldShape.updateZrenderShape('size', true);
                     break;
                 }
 

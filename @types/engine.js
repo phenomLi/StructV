@@ -20,8 +20,6 @@ class Engine {
         this.viewModel = null;
         // Element构造函数容器，用作存放该引擎扩展的Element
         this.ElementsTable = {};
-        // 源数据字段
-        this.sourcesField = null;
         // 动画配置项
         this.animationOption = {
             enableSkip: true,
@@ -31,12 +29,15 @@ class Engine {
         };
         // 是否正在执行视图更新
         this.isViewUpdatingFlag = false;
+        // 使用Engine的构造函数注册的图形将被存放在此处，只有注册该图形的Engine可访问到这些图形（私有）
+        this.scopedShapesTable = {};
         util_1.Util.assert(!container, 'HTML元素不存在');
         this.id = util_1.Util.generateId();
         this.name = engineInfo.name;
         this.elementsOption = engineInfo.defaultOption.element;
         this.layoutOption = engineInfo.defaultOption.layout;
         util_1.Util.merge(this.animationOption, engineInfo.defaultOption.animation);
+        // 若有自定义Element，注册
         if (engineInfo.element) {
             // 只有一种元素
             if (typeof engineInfo.element === 'function') {
@@ -45,6 +46,12 @@ class Engine {
                 };
             }
             this.ElementsTable = engineInfo.element;
+        }
+        // 若有私有自定义图形，注册
+        if (engineInfo.shape) {
+            Object.keys(engineInfo.shape).map(name => {
+                this.scopedShapesTable[name] = engineInfo.shape[name];
+            });
         }
         this.viewModel = new viewModel_1.ViewModel(this, container);
         this.dataModel = new dataModel_1.DataModel(this, this.viewModel);
@@ -119,6 +126,27 @@ class Engine {
         return this.name;
     }
     /**
+     * 动态添加一个连接信息
+     * - 该方法用于让用户在render方法中动态生成一个非预先在source中声明的连接
+     * @param emitElement
+     * @param targetElement
+     * @param linkName
+     * @param anchorPair
+     */
+    link(emitElement, targetElement, linkName, anchorPair = null) {
+        this.dataModel.addLink(emitElement, targetElement, linkName, anchorPair);
+    }
+    /**
+     * 动态添加一个外部指针
+     * - 该方法用于让用户在render方法中动态生成一个非预先在source中声明的外部指针
+     * @param targetElement
+     * @param referName
+     * @param referValue
+     */
+    refer(targetElement, referName, referValue) {
+        this.dataModel.addPointer(targetElement, referName, referValue);
+    }
+    /**
      * 创建一个静态文本
      * @param content
      * @param style
@@ -170,16 +198,14 @@ class Engine {
     afterUpdate() { }
 }
 // Shape构造函数容器，用作存放扩展的Shape（基本上为Composite）
+// 使用registerShape函数注册的图形将被存放在此处，任何子Engine都可访问到这些图形（全局）
 Engine.ShapesTable = {};
 exports.Engine = Engine;
 /**
  * 注册一个或多个图形
  */
-function RegisterShape(target, shapeName, scope = null) {
-    Engine.ShapesTable[shapeName] = {
-        constructor: target,
-        scope
-    };
+function RegisterShape(target, shapeName) {
+    Engine.ShapesTable[shapeName] = target;
     target.prototype.name = shapeName;
 }
 exports.RegisterShape = RegisterShape;

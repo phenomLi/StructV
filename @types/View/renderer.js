@@ -4,154 +4,9 @@ const shape_1 = require("./../Shapes/shape");
 const util_1 = require("../Common/util");
 const text_1 = require("../Shapes/text");
 const viewContainer_1 = require("./viewContainer");
-const zrender = require("zrender");
+const zrender = require("./../lib/zrender.min");
 const boundingRect_1 = require("./boundingRect");
-/**
- * 封装动画
- */
-class Animations {
-    constructor(animationOption) {
-        // 有方向淡入淡出动画的位移
-        this.fadeOffset = 60;
-        this.option = animationOption;
-    }
-    /**
-     * 位移动画
-     * @param shape
-     */
-    translate(shape) {
-        return { position: [shape.x, shape.y] };
-    }
-    /**
-     * 旋转动画
-     * @param shape
-     */
-    rotation(shape) {
-        return { rotation: shape.rotation };
-    }
-    /**
-     * 缩放动画
-     * @param shape
-     */
-    scale(shape) {
-        // 对复合图形的子图形的’scale‘动画作特殊处理，保证scale只对父图形作用
-        if (shape.parentShape) {
-            return {
-                style: {
-                    opacity: shape.visible ? shape.style.opacity : 0
-                }
-            };
-        }
-        else {
-            return {
-                scale: shape.visible ? [1, 1] : [0, 0],
-                style: {
-                    opacity: shape.visible ? shape.style.opacity : 0
-                }
-            };
-        }
-    }
-    /**
-     * 淡入淡出动画
-     * @param shape
-     */
-    fade(shape) {
-        return {
-            style: {
-                opacity: shape.visible ? shape.style.opacity : 0
-            }
-        };
-    }
-    /**
-     * 从上方淡入淡出动画
-     * @param shape
-     */
-    fadeTop(shape) {
-        return {
-            position: [shape.x, shape.visible ? shape.y : (shape.y - this.fadeOffset)],
-            style: {
-                opacity: shape.visible ? shape.style.opacity : 0
-            }
-        };
-    }
-    /**
-     * 从右方淡入淡出动画
-     * @param shape
-     */
-    fadeRight(shape) {
-        return {
-            position: [shape.visible ? shape.x : shape.x + this.fadeOffset, shape.y],
-            style: {
-                opacity: shape.visible ? shape.style.opacity : 0
-            }
-        };
-    }
-    /**
-     * 从下方淡入淡出动画
-     * @param shape
-     */
-    fadeBottom(shape) {
-        return {
-            position: [shape.x, shape.visible ? shape.y : shape.y + this.fadeOffset],
-            style: {
-                opacity: shape.visible ? shape.style.opacity : 0
-            }
-        };
-    }
-    /**
-     * 从左方淡入淡出动画
-     * @param shape
-     */
-    fadeLeft(shape) {
-        return {
-            position: [shape.visible ? shape.x : shape.x - this.fadeOffset, shape.y],
-            style: {
-                opacity: shape.visible ? shape.style.opacity : 0
-            }
-        };
-    }
-    /**
-     * 样式动画
-     * @param shape
-     */
-    style(shape) {
-        if (shape.style.text) {
-            shape.zrenderShape.attr('style', {
-                text: shape.style.text
-            });
-        }
-        return { style: shape.style };
-    }
-    /**
-     * 路径动画
-     * @param shape
-     */
-    path(shape) {
-        return {
-            shape: {
-                points: shape.path
-            }
-        };
-    }
-    /**
-     * 二次贝塞尔曲线动画
-     * @param shape
-     */
-    curve(shape) {
-        return {
-            shape: {
-                x1: shape.path[0][0],
-                y1: shape.path[0][1],
-                x2: shape.path[1][0],
-                y2: shape.path[1][1],
-                cpx1: shape.controlPoint[0],
-                cpy1: shape.controlPoint[1]
-            }
-        };
-    }
-}
-exports.Animations = Animations;
-;
+const animations_1 = require("./animations");
 /**
  * 渲染器
  */
@@ -168,7 +23,7 @@ class Renderer {
         // 上一次更新是否被该次打断
         this.isLastUpdateInterrupt = false;
         this.zr = Renderer.zrender.init(container);
-        this.animations = new Animations(opt);
+        this.animations = new animations_1.Animations(opt);
         this.globalContainer = new viewContainer_1.ViewContainer(this);
         this.globalContainer.setOrigin(container.offsetWidth / 2, container.offsetHeight / 2);
         this.option = opt;
@@ -323,6 +178,14 @@ class Renderer {
         if (this.init) {
             this.init = !this.init;
         }
+    }
+    /**
+     * 根据动画名称，获取animations对象的对应动画属性
+     * @param shape
+     * @param animationName
+     */
+    getAnimationProps(shape, animationName) {
+        return this.animations[animationName](shape);
     }
     /**
      * 获取容器宽度

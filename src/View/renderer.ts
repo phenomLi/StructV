@@ -4,176 +4,13 @@ import { shapeContainer } from "./viewModel";
 import { Util } from "../Common/util";
 import { Text } from "../Shapes/text";
 import { ViewContainer } from "./viewContainer";
-import { PolyLine } from "../Shapes/polyLine";
-import * as zrender from 'zrender';
-import { Curve } from "../Shapes/curve";
+import * as zrender from './../lib/zrender.min';
 import { Bound } from "./boundingRect";
-import { Composite } from "../Shapes/composite";
+import { Animations } from "./animations";
+
 
 
 export type zrenderShape = any;
-
-
-/**
- * 封装动画
- */
-export class Animations {
-    // 有方向淡入淡出动画的位移
-    fadeOffset: number = 60;
-    // 动画配置项
-    option: AnimationOption;
-
-    constructor(animationOption: AnimationOption) {
-        this.option = animationOption;
-    }
-
-    /**
-     * 位移动画
-     * @param shape
-     */
-    translate(shape: Shape) {
-        return { position: [shape.x, shape.y] };
-    }
-
-    /**
-     * 旋转动画
-     * @param shape 
-     */
-    rotation(shape: Shape) {
-        return { rotation: shape.rotation };
-    }
-
-    /**
-     * 缩放动画
-     * @param shape
-     */
-    scale(shape: Shape) {
-        // 对复合图形的子图形的’scale‘动画作特殊处理，保证scale只对父图形作用
-        if(shape.parentShape) {
-            return {
-                style: {
-                    opacity: shape.visible? shape.style.opacity: 0
-                }
-            };
-        }
-        else {
-            return {
-                scale: shape.visible? [1, 1]: [0, 0],
-                style: {
-                    opacity: shape.visible? shape.style.opacity: 0
-                }
-            };
-        }
-    }
-
-    /**
-     * 淡入淡出动画
-     * @param shape
-     */
-    fade(shape: Shape) {
-        return {
-            style: {
-                opacity: shape.visible? shape.style.opacity: 0
-            }
-        };
-    }
-
-    /**
-     * 从上方淡入淡出动画
-     * @param shape 
-     */
-    fadeTop(shape: Shape) {
-        return {
-            position: [shape.x, shape.visible? shape.y: (shape.y - this.fadeOffset)],
-            style: {
-                opacity: shape.visible? shape.style.opacity: 0
-            }
-        };
-    }
-
-    /**
-     * 从右方淡入淡出动画
-     * @param shape
-     */
-    fadeRight(shape: Shape) {
-        return {
-            position: [shape.visible? shape.x: shape.x + this.fadeOffset, shape.y],
-            style: {
-                opacity: shape.visible? shape.style.opacity: 0
-            }
-        };
-    }
-
-    /**
-     * 从下方淡入淡出动画
-     * @param shape 
-     */
-    fadeBottom(shape: Shape) {
-        return {
-            position: [shape.x, shape.visible? shape.y: shape.y + this.fadeOffset],
-            style: {
-                opacity: shape.visible? shape.style.opacity: 0
-            }
-        };
-    }
-
-    /**
-     * 从左方淡入淡出动画
-     * @param shape 
-     */
-    fadeLeft(shape: Shape) {
-        return {
-            position: [shape.visible? shape.x: shape.x - this.fadeOffset, shape.y],
-            style: {
-                opacity: shape.visible? shape.style.opacity: 0
-            }
-        };
-    }
-
-    /**
-     * 样式动画
-     * @param shape
-     */
-    style(shape: Shape) {
-        if(shape.style.text) {
-            shape.zrenderShape.attr('style', {
-                text: shape.style.text
-            });
-        }
-
-        return { style: shape.style };
-    }
-
-    /**
-     * 路径动画
-     * @param shape
-     */
-    path(shape: PolyLine) {
-        return {
-            shape: {
-                points: shape.path
-            }
-        };
-    }
-
-    /**
-     * 二次贝塞尔曲线动画
-     * @param shape 
-     */
-    curve(shape: Curve) {
-        return {
-            shape: {
-                x1: shape.path[0][0],
-                y1: shape.path[0][1],
-                x2: shape.path[1][0],
-                y2: shape.path[1][1],
-                cpx1: shape.controlPoint[0],
-                cpy1: shape.controlPoint[1]
-            }
-        };
-    }
-};
-
 
 
 
@@ -189,7 +26,7 @@ export class Renderer {
     // 配置项
     private option: AnimationOption;
     // 动画表
-    public animations: Animations;
+    private animations: Animations;
     // 需使用动画更新的zrender属性的队列
     private animatePropsQueue: {
         zrenderShape: zrenderShape,
@@ -398,6 +235,15 @@ export class Renderer {
         if(this.init) {
             this.init = !this.init;
         }
+    }
+
+    /**
+     * 根据动画名称，获取animations对象的对应动画属性
+     * @param shape 
+     * @param animationName 
+     */
+    getAnimationProps(shape: Shape, animationName: string) {
+        return this.animations[animationName](shape);
     }
 
     /**

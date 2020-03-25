@@ -36,12 +36,17 @@ class Shape {
         this.visible = false;
         // 旋转
         this.rotation = 0;
+        // 宽高
+        this.width = 0;
+        this.height = 0;
         // 样式
         this.style = null;
         this.prevX = 0;
         this.prevY = 0;
         this.prevVisible = false;
         this.prevRotation = 0;
+        this.prevWidth = 0;
+        this.prevHeight = 0;
         this.prevStyle = null;
         // ------------------------------------
         // 基础样式
@@ -62,9 +67,6 @@ class Shape {
             zIndex: 1,
             show: 'scale'
         };
-        // 宽高
-        this.width = 0;
-        this.height = 0;
         // 渲染器实例
         this.renderer = null;
         // 父图形（通常指代复合图形Composite）
@@ -79,6 +81,7 @@ class Shape {
             rotation: 'rotation',
             show: 'scale',
             hide: 'scale',
+            size: 'size',
             style: 'style'
         };
         this.id = id;
@@ -137,10 +140,14 @@ class Shape {
         this.prevY = this.y;
         this.prevRotation = this.rotation;
         this.prevVisible = this.visible;
+        this.prevWidth = this.width;
+        this.prevHeight = this.height;
         this.prevStyle = this.style;
         this.x = 0;
         this.y = 0;
         this.rotation = 0;
+        this.width = 0;
+        this.height = 0;
         this.visible = false;
         this.style = this.defaultStyle(this.baseStyle);
     }
@@ -212,16 +219,16 @@ class Shape {
     updateZrenderShape(name, animation = false, fn) {
         if (this.zrenderShape === null)
             return;
-        let prop = this.renderer.animations[this.animationsTable[name]](this);
+        let props = this.renderer.getAnimationProps(this, this.animationsTable[name]);
         // 保存回调函数
         if (fn)
-            prop['callback'] = fn;
+            props['callback'] = fn;
         // 复合图形修改属性/进行动画前要先修正origin
         if (this.type === 'composite' || this.name === 'polyLine') {
             let bound = this.getBound();
             this.zrenderShape.attr('origin', [bound.x + bound.width / 2, bound.y + bound.height / 2]);
         }
-        this.renderer.setAttribute(this.zrenderShape, prop, animation);
+        this.renderer.setAttribute(this.zrenderShape, props, animation);
     }
     /**
      * 创建zrender图形

@@ -1,7 +1,7 @@
-import { Engine } from "../engine";
 import { ElementContainer, DataModel } from "./dataModel";
 import { Element } from "./element";
-import { LinkOption } from "../option";
+import { LinkTarget } from "../sources";
+import { LayoutOption } from "../option";
 import { ViewModel } from "../View/viewModel";
 import { Line } from "../SpecificShapes/line";
 export declare type anchor = ((w: number, h: number, o?: number) => [number, number]) | [number, number];
@@ -23,48 +23,60 @@ export interface LinkPair {
  * 连接处理器
  */
 export declare class LinkModel {
-    private engine;
     private dataModel;
     private viewModel;
+    private layoutOption;
+    private linkOptions;
     private linkPairs;
     private labelList;
     private labelAvoidLevel;
-    constructor(engine: Engine, dataModel: DataModel, viewModel: ViewModel);
+    constructor(dataModel: DataModel, viewModel: ViewModel, layoutOption: LayoutOption);
     /**
      * 构建连接模型
+     * - 添加linkPair到linkPairs队列
+     * - 将element中的源数据linkName字段（linkData类型）替换为真实element
      * @param elements
      * @param elementList
      * @param linkOptions
      */
-    constructLinks(elements: ElementContainer, elementList: Element[], linkOptions: {
-        [key: string]: Partial<LinkOption>;
-    }): void;
+    constructLinks(elements: ElementContainer, elementList: Element[]): void;
     /**
      * 根据配置项，更新连接图形
      * @param linkOptions
      * @param elementList
      */
-    updateLinkShape(): void;
-    /**
-     * 根据源数据连接信息，将sourceElement替换为Element
-     * @param elements
-     * @param elementList
-     */
-    private buildLinkRelation;
+    emitLinkShapes(): void;
     /**
      * 生成连接对
-     * @param element
-     * @param target
-     * @param linkOption
-     * @param linkName
-     * @param index
+     * @param linkInfo
      */
-    private generateLinkPair;
+    addLinkPair(linkInfo: {
+        element: Element;
+        target: Element;
+        linkName: string;
+        sourceTarget: LinkTarget;
+        label?: string;
+        index?: number;
+        anchorPair?: [anchor, anchor];
+    }): void;
+    /**
+     * 由source中的连接字段获取真实的连接目标元素
+     * @param elements
+     * @param emitElement
+     * @param linkIds
+     */
+    private fetchTargetElements;
     /**
      * 连接两结点
      * @param linkPair
      */
     private linkElement;
+    /**
+     * 获取锚点对（[源元素锚点， 目标元素锚点]）
+     * @param element
+     * @param index
+     */
+    private getAnchorPair;
     /**
      * 处理连接点
      * @param contacts
@@ -81,9 +93,7 @@ export declare class LinkModel {
     /**
      * 处理标签
      * @param sourceText
-     * @param ele
-     * @param targetEle
-     * @param index
+     * @param sourceTarget
      */
     private labelSolver;
     /**

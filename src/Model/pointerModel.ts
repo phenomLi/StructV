@@ -1,10 +1,9 @@
-import { Engine } from "../engine";
 import { DataModel } from "./dataModel";
 import { Element } from "./element";
 import { Util } from "../Common/util";
 import { ViewModel } from "../View/viewModel";
 import { Text } from "../Shapes/text";
-import { PointerOption } from "../option";
+import { PointerOption, LayoutOption } from "../option";
 import { anchor } from "./linkModel";
 import { Line } from "../SpecificShapes/line";
 
@@ -23,12 +22,16 @@ export interface PointerPair {
 export class PointerModel {
     private dataModel: DataModel;
     private viewModel: ViewModel;
+    private layoutOption: LayoutOption;
+    private pointerOptions: { [key: string]: Partial<PointerOption> };
 
     private pointerPairs: PointerPair[] = [];
 
-    constructor(private engine: Engine, dataModel: DataModel, viewModel: ViewModel) {
+    constructor(dataModel: DataModel, viewModel: ViewModel, layoutOption: LayoutOption) {
         this.dataModel = dataModel;
         this.viewModel = viewModel;
+        this.layoutOption = layoutOption;
+        this.pointerOptions = this.layoutOption.pointer;
     }
 
     /**
@@ -36,28 +39,39 @@ export class PointerModel {
      * @param elementList 
      * @param pointerOptions 
      */
-    constructPointers(elementList: Element[], pointerOptions: { [key: string]: Partial<PointerOption> }) {
-        Object.keys(pointerOptions).map(pointerName => {
+    constructPointers(elementList: Element[]) {
+        if(!this.pointerOptions) return;
+
+        Object.keys(this.pointerOptions).map(pointerName => {
             for(let i = 0; i < elementList.length; i++) {
                 let ele = elementList[i];
                 
                 // 若没有指针字段的结点则跳过
                 if(!ele[pointerName]) continue;
-                
-                let labels = ele[pointerName],
-                    id = pointerName + '#' + (Array.isArray(labels)? labels[0]: labels),
-                    pointerShape = this.viewModel.createShape(id, 'line', pointerOptions[pointerName]) as Line;
 
-                this.pointerPairs.push({
-                    pointerShape,
-                    labels,
-                    target: ele,
-                    pointerName
-                });
-
-                ele.onRefer(pointerShape.style, pointerName, labels);
+                this.addPointerPair(ele, pointerName, ele[pointerName]);
             }
         });
+    }
+
+    /**
+     * 添加一个外部指针信息pointerPair
+     * @param targetElement 
+     * @param pointerName 
+     * @param labels 
+     */
+    addPointerPair(targetElement: Element, pointerName: string, labels: string | string[]) {
+        let id = pointerName + '#' + (Array.isArray(labels)? labels[0]: labels),
+            pointerShape = this.viewModel.createShape(id, 'line', this.pointerOptions[pointerName]) as Line;
+
+        this.pointerPairs.push({
+            pointerShape,
+            labels,
+            target: targetElement,
+            pointerName
+        });
+
+        targetElement.onRefer(pointerShape.style, pointerName, labels);
     }
 
     /**
@@ -65,7 +79,7 @@ export class PointerModel {
      * @param pointerOptions
      * @param elementList 
      */
-    updatePointerShape() {
+    emitPointerShapes() {
         // 遍历指针对队列，进行元素的指针绑定
         for(let i = 0; i < this.pointerPairs.length; i++) {
             this.referElement(this.pointerPairs[i]);
@@ -80,7 +94,7 @@ export class PointerModel {
         let pointerName = pointerPair.pointerName,
             pointerLabels = pointerPair.labels,
             target = pointerPair.target,
-            pointerOption = this.engine.layoutOption.pointer[pointerName],
+            pointerOption = this.layoutOption.pointer[pointerName],
             labelStyle = pointerOption.labelStyle,
             pointerShape = pointerPair.pointerShape,
             labelShapes = [],
@@ -95,17 +109,16 @@ export class PointerModel {
             };
 
         if(Array.isArray(pointerLabels)) {
-            pointerLabels.map(label => {
-                let shape = this.viewModel.createShape(
-                        pointerName + '-' + label + '-text', 
-                        'text', 
-                        { 
-                            style: labelStyle, 
-                            content: label,
-                            show: pointerOption.show 
-                        }
-                    );
-                labelShapes.push(shape);
+            labelShapes = pointerLabels.map(label => {
+                return this.viewModel.createShape(
+                    pointerName + '-' + label + '-text', 
+                    'text', 
+                    { 
+                        style: labelStyle, 
+                        content: label,
+                        show: pointerOption.show 
+                    }
+                );
             });
         }
         else {
@@ -123,8 +136,8 @@ export class PointerModel {
         
         let x = target.x, 
             y = target.y, 
-            w = target.getWidth(), 
-            h = target.getHeight(), 
+            w = target.width, 
+            h = target.height, 
             r = target.rotation,
             anchor = directionMapAnchor[pointerOption.position || 'top'] as anchor,
             start = Util.anchor2position(x, y, w, h, r, anchor, pointerOption.offset + pointerOption.length),

@@ -3,7 +3,7 @@ import { Engine } from "../engine";
 import { Shape } from "../Shapes/shape";
 import { ViewModel } from "../View/viewModel";
 import { Sources } from "../sources";
-import { ContainerModel } from "./containerModel";
+import { anchor } from "./linkModel";
 export declare type ElementContainer = {
     [key: string]: Element[];
 };
@@ -12,7 +12,6 @@ export declare class DataModel {
     private viewModel;
     private linkModel;
     private pointerModel;
-    protected containerModel: ContainerModel;
     private bindingInfos;
     private elementList;
     private elementContainer;
@@ -55,6 +54,23 @@ export declare class DataModel {
      * @param bindingInfo
      */
     bind<T extends Element | Element[] = Element, U extends Shape | Shape[] = Shape>(ele: T, shape: U, bindFn: (element: T, shape: U, param?: any) => void, param?: any): void;
+    /**
+     * 动态添加一个连接
+     * - 该方法用于让用户在render方法中动态生成一个非预先在source中声明的连接
+     * @param emitElement
+     * @param targetElement
+     * @param linkName
+     * @param anchorPair
+     */
+    addLink(emitElement: Element, targetElement: Element, linkName: string, value?: any, anchorPair?: [anchor, anchor]): void;
+    /**
+     * 动态添加一个外部指针
+     * - 该方法用于让用户在render方法中动态生成一个非预先在source中声明的外部指针
+     * @param targetElement
+     * @param pointerName
+     * @param value
+     */
+    addPointer(targetElement: Element, pointerName: string, value: string): void;
     /**
      * 重置上一次的数据，包括：
      * - elementList

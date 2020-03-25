@@ -1,15 +1,16 @@
 import { Shape, Style } from '../Shapes/shape';
-import { SourceElement } from '../sources';
+import { SourceElement, LinkData } from '../sources';
 import { LayoutOption } from '../option';
 import { BoundingRect } from '../View/boundingRect';
 export declare class Element<T extends SourceElement = SourceElement> {
     id: any;
     elementId: string;
     name: string;
-    type: string;
     x: number;
     y: number;
     rotation: number;
+    width: number;
+    height: number;
     style: Style;
     shape: Shape;
     layoutOption: LayoutOption;
@@ -18,9 +19,7 @@ export declare class Element<T extends SourceElement = SourceElement> {
      * 应用源数据元素的属性
      * @param sourceElement
      */
-    applySourceElement(sourceElement: T, field: string[]): void;
-    getWidth(): number;
-    getHeight(): number;
+    constructor(sourceElement: T);
     /**
      * 获取元素包围盒
      */
@@ -34,8 +33,9 @@ export declare class Element<T extends SourceElement = SourceElement> {
      * @param targetEle
      * @param linkStyle
      * @param linkName
+     * @param sourceTarget
      */
-    onLink(targetEle: Element, linkStyle: Style, linkName: string): void;
+    onLink(targetEle: Element, linkStyle: Style, linkName: string, sourceTarget: LinkData): void;
     /**
      * 当指向结点时触发
      * @param pointerStyle

@@ -1,8 +1,7 @@
-import { Engine } from "../engine";
 import { ElementContainer, DataModel } from "./dataModel";
 import { Element } from "./element";
-import { LinkType } from "../sources";
-import { LinkOption } from "../option";
+import { LinkData, LinkTarget } from "../sources";
+import { LinkOption, LayoutOption } from "../option";
 import { Util } from "../Common/util";
 import { ViewModel } from "../View/viewModel";
 import { Text } from "../Shapes/text";
@@ -37,43 +36,67 @@ export interface LinkPair {
 export class LinkModel {
     private dataModel: DataModel;
     private viewModel: ViewModel;
+    private layoutOption: LayoutOption;
+    private linkOptions: { [key: string]: Partial<LinkOption>};
 
     private linkPairs: LinkPair[] = [];
     private labelList: Text[] = [];
     private labelAvoidLevel: number = 2;
 
-    constructor(private engine: Engine, dataModel: DataModel, viewModel: ViewModel) {
+    constructor(dataModel: DataModel, viewModel: ViewModel, layoutOption: LayoutOption) {
         this.dataModel = dataModel;
         this.viewModel = viewModel;
+        this.layoutOption = layoutOption;
+        this.linkOptions = this.layoutOption.link;
     }
 
     /**
      * 构建连接模型
+     * - 添加linkPair到linkPairs队列
+     * - 将element中的源数据linkName字段（linkData类型）替换为真实element
      * @param elements
      * @param elementList 
      * @param linkOptions 
      */
-    constructLinks(elements: ElementContainer, elementList: Element[], linkOptions: { [key: string]: Partial<LinkOption>}) {
-        this.buildLinkRelation(elements, elementList);
+    constructLinks(elements: ElementContainer, elementList: Element[]) {
+        // 没有连接信息，返回
+        if(!this.linkOptions) return;
 
-        Object.keys(linkOptions).map(linkName => {
-            let linkOption = linkOptions[linkName];
-
-            // 遍历所有元素，创建连接对信息到linkPairs队列
+        Object.keys(this.layoutOption.link).map(linkName => {
             for(let i = 0; i < elementList.length; i++) {
-                let ele = elementList[i];
+                let ele = elementList[i],
+                    linkData: LinkData = ele[linkName],
+                    target = null;
 
-                // 若没有连接字段的结点则跳过
-                if(!ele[linkName]) continue;
+                if(linkData === undefined || linkData === null) continue;
 
-                if(Array.isArray(ele[linkName])) {
-                    ele[linkName].map((item, index) => {
-                        if(!item) return;
-                        this.generateLinkPair(ele, item, linkOption, linkName, index);
+                //  ---------------------------- 将连接声明字段从id变为Element ---------------------
+                if(Array.isArray(linkData)) {
+                    ele[linkName] = [...linkData].map((item, index) => {
+                        target = this.fetchTargetElements(elements, ele, item);
+                        this.addLinkPair({
+                            element: ele,
+                            target,
+                            linkName,
+                            anchorPair: null,
+                            sourceTarget: item,
+                            index
+                        });
+                        
+                        return target;
                     });
                 }
                 else {
-                    this.generateLinkPair(ele, ele[linkName], linkOption, linkName);
+                    target = this.fetchTargetElements(elements, ele, linkData);
+                    this.addLinkPair({
+                        element: ele,
+                        target,
+                        linkName,
+                        anchorPair: null,
+                        sourceTarget: linkData
+                    });
+                    
+                    ele[linkName] = target;
                 }
             }
         });
@@ -84,99 +107,92 @@ export class LinkModel {
      * @param linkOptions 
      * @param elementList 
      */
-    updateLinkShape() {
+    emitLinkShapes() {
         // 遍历连接对队列，进行元素间的连接绑定
         for(let i = 0; i < this.linkPairs.length; i++) {
             this.linkElement(this.linkPairs[i]);
         }
     }
 
-    /**
-     * 根据源数据连接信息，将sourceElement替换为Element
-     * @param elements 
-     * @param elementList 
-     */
-    private buildLinkRelation(elements: ElementContainer, elementList: Element[]) {
-        Object.keys(this.engine.layoutOption.link).map(linkName => {
-            for(let i = 0; i < elementList.length; i++) {
-                let ele = elementList[i],
-                    linkData: LinkType = ele[linkName],
-                    targetElement = null;
-
-                if(linkData === undefined || linkData === null) continue;
-
-                //  ---------------------------- 将连接声明字段从id变为Element ---------------------
-
-                // 若连接声明是一个对象
-                if(typeof linkData === 'object' && !Array.isArray(linkData)) {
-                    // 目标结点类型
-                    let eleType = linkData.element;
-
-                    if(Array.isArray(linkData.target)) {
-                        ele[linkName] = (<any[]>linkData.target).map(item => {
-                            if(item) {
-                                targetElement = (<Element[]>elements[eleType]).find(e => e.id === item);
-                                return targetElement? targetElement: null;
-                            }
-                            else {
-                                return null;
-                            }
-                        });
-                    }
-                    else {
-                        targetElement = (<Element[]>elements[eleType]).find(e => e.id === (<{ target: number }>linkData).target);
-                        ele[linkName] = targetElement? targetElement: null;
-                    }
-                }
-                // 是一个数组
-                else if(Array.isArray(linkData)) {
-                    ele[linkName] = (<any[]>linkData).map(item => {
-                        if(item) {
-                            targetElement = elements[ele.name].find(e => e.id === item);
-                            return targetElement? targetElement: null;
-                        }
-                        else {
-                            return null;
-                        }
-                    });
-                }
-                // 是一个id
-                else {
-                    targetElement = elements[ele.name].find(e => e.id === ele[linkName]);
-                    ele[linkName] = targetElement? targetElement: null;
-                }
-            }
-        });
-    }
 
     /**
      * 生成连接对
-     * @param element 
-     * @param target 
-     * @param linkOption 
-     * @param linkName 
-     * @param index 
+     * @param linkInfo
      */
-    private generateLinkPair(element: Element, target: Element, linkOption: Partial<LinkOption>, linkName: string, index?: number) {
-        let contact = this.contactSolver(linkOption.contact, index),
+    addLinkPair(linkInfo: {
+        element: Element;
+        target: Element;
+        linkName: string;
+        sourceTarget: LinkTarget,
+        label?: string;
+        index?: number;
+        anchorPair?: [anchor, anchor];
+    }) {
+        if(linkInfo.target === null) return;
+
+        let element: Element = linkInfo.element, 
+            target: Element = linkInfo.target, 
+            linkName: string = linkInfo.linkName, 
+            label = linkInfo.label || this.linkOptions[linkName].label,
+            sourceTarget = linkInfo.sourceTarget,
+            anchorPair: [anchor, anchor] = linkInfo.anchorPair, 
+            index: number = linkInfo.index,
+            linkOption = this.linkOptions[linkName],
             linkShape = this.viewModel.createShape(`${element.elementId}-${target.elementId}`, 'line', linkOption) as Line;
 
+        if(anchorPair === null || anchorPair === undefined) {
+            anchorPair = this.getAnchorPair(element, target, linkName, index);
+        }
+
+        // 添加一个linkPair到linkPairs队列
         this.linkPairs.push({
             linkName,
             linkShape,
             ele: element,
             target,
-            anchorPair: contact? [
-                this.getElementAnchor(element, contact[0]), this.getElementAnchor(target, contact[1])
-            ]: contact,
+            anchorPair,
             anchorPosPair: null,
-            label: this.labelSolver(linkOption.label, element, target, index),
+            label: this.labelSolver(label, sourceTarget),
             index,
-            dynamic: contact? false: true
+            dynamic: anchorPair? false: true
         });
 
-        element.onLink(target, linkShape.style, linkName);
-        target.onLink(null, linkShape.style, linkName);
+        // 响应onLink钩子函数
+        element.onLink(target, linkShape.style, linkName, sourceTarget);
+        target.onLink(null, linkShape.style, linkName, sourceTarget);
+    }
+
+    /**
+     * 由source中的连接字段获取真实的连接目标元素
+     * @param elements
+     * @param emitElement
+     * @param linkIds 
+     */
+    private fetchTargetElements(elements: ElementContainer, emitElement: Element, linkTarget: LinkTarget): Element | Element[] {
+        let elementList = elements[emitElement.name],
+            target = null;
+
+        if(linkTarget === null || linkTarget === undefined) {
+            return null;
+        }
+
+        // 为linkData对象
+        if(typeof linkTarget === 'object' && !Array.isArray(linkTarget)) {
+            elementList = elements[linkTarget.element || emitElement.name];
+            
+             // 若目标element不存在，返回null
+            if(elementList === undefined) {
+                return Array.isArray(linkTarget)? Array.from(new Array(linkTarget.length)).map(item => null): null;
+            }
+
+            target = elementList.find(e => e.id === linkTarget.target);
+            return target || null;
+        }
+        // 为单个id值
+        else {
+            target = elementList.find(e => e.id === linkTarget);
+            return target || null;
+        }
     }
 
     /**
@@ -184,7 +200,7 @@ export class LinkModel {
      * @param linkPair
      */
     private linkElement(linkPair: LinkPair) {
-        let linkOption = this.engine.layoutOption.link[linkPair.linkName],
+        let linkOption = this.layoutOption.link[linkPair.linkName],
             element = linkPair.ele,
             target = linkPair.target,
             label = linkPair.label,
@@ -233,6 +249,18 @@ export class LinkModel {
         if(labelShape) {
             this.labelAvoid(labelShape, linkShape, [0, 1], 0);
         }
+    }
+
+    /**
+     * 获取锚点对（[源元素锚点， 目标元素锚点]）
+     * @param element
+     * @param index 
+     */
+    private getAnchorPair(element: Element, target: Element, linkName: string, index?: number): [anchor, anchor] {
+        let contact = this.contactSolver(this.linkOptions[linkName].contact, index);
+        return contact? [
+            this.getElementAnchor(element, contact[0]), this.getElementAnchor(target, contact[1])
+        ]: null;
     }
 
     /**
@@ -303,30 +331,24 @@ export class LinkModel {
     /**
      * 处理标签
      * @param sourceText 
-     * @param ele 
-     * @param targetEle 
-     * @param index 
+     * @param sourceTarget
      */
-    private labelSolver(sourceText: string, ele: Element, targetEle: Element, index?: number) {
+    private labelSolver(sourceText: string, sourceTarget: LinkTarget) {
         if(!sourceText) return null;
+
+        if(sourceText && sourceTarget === null) {
+            return sourceText;
+        }
 
         let resultText = sourceText,
             props = Util.textParser(sourceText);
 
         if(Array.isArray(props)) {
             let values = props.map(item => {
-                let value = /target/g.test(item)?
-                    targetEle[item.replace(/target\./g, '')]:
-                    ele[item];
+                let value = sourceTarget[item];
 
                 if(value === undefined) return null;
- 
-                if(Array.isArray(value) && index >= 0) {
-                    return value[index];
-                }
-                else {
-                    return value;
-                }
+                else return value;
             });
 
             for(let i = 0; i < values.length; i++) {
@@ -391,7 +413,7 @@ export class LinkModel {
      * 获取元素的某个锚点
      */
     private getElementAnchor(ele: Element, anchorIndex: number): anchor  {
-        let customAnchors = this.engine.layoutOption[ele.name].anchors,
+        let customAnchors = this.layoutOption[ele.name].anchors,
             defaultAnchors = ele.shape.defaultAnchors(ele.shape.getBaseAnchors(), ele.shape.width, ele.shape.height);
 
         if(customAnchors) {
@@ -411,9 +433,9 @@ export class LinkModel {
      */
     private getDynamicAnchorPos(ele: Element, target: Element): [anchor, anchor] {
         let cir1Pos: [number, number] = [ele.x, ele.y],
-            cir1r = (ele.getWidth() > ele.getHeight()? ele.getWidth(): ele.getHeight()) / 2,
+            cir1r = (ele.width > ele.height? ele.width: ele.height) / 2,
             cir2Pos: [number, number] = [target.x, target.y],
-            cir2r = (target.getWidth() > target.getHeight()? target.getWidth(): target.getHeight()) / 2;
+            cir2r = (target.width > target.height? target.width: target.height) / 2;
 
         let direction = Vector.subtract(cir1Pos, cir2Pos),
             anchor1 = Vector.location(cir1Pos, Vector.negative(direction), cir1r),

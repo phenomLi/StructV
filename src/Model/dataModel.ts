@@ -4,9 +4,8 @@ import { Shape } from "../Shapes/shape";
 import { ViewModel } from "../View/viewModel";
 import { SourceElement, Sources } from "../sources";
 import { Util } from "../Common/util";
-import { LinkModel } from "./linkModel";
+import { LinkModel, anchor } from "./linkModel";
 import { PointerModel } from "./pointerModel";
-import { ContainerModel } from "./containerModel";
 
 
 
@@ -29,8 +28,6 @@ export class DataModel {
     private linkModel: LinkModel;
     // 指针处理类
     private pointerModel: PointerModel;
-    // 容器处理类
-    protected containerModel: ContainerModel;
     // 图形绑定队列
     private bindingInfos: bindingInfo[] = [];
     // 元素队列
@@ -42,9 +39,8 @@ export class DataModel {
         this.engine = engine;
         this.viewModel = viewModel;
 
-        this.linkModel = new LinkModel(engine, this, viewModel);
-        this.pointerModel = new PointerModel(engine, this, viewModel);
-        this.containerModel = new ContainerModel(engine, this, viewModel);
+        this.linkModel = new LinkModel(this, viewModel, this.engine.layoutOption);
+        this.pointerModel = new PointerModel(this, viewModel, this.engine.layoutOption);
     }
 
     /**
@@ -70,19 +66,12 @@ export class DataModel {
         }
 
         // 构建连接模型
-        if(this.engine.layoutOption.link) {
-            this.linkModel.constructLinks(this.elementContainer, this.elementList, this.engine.layoutOption.link);
-        }
-
-        // 构建容器模型
-        if(this.engine.layoutOption.container) {
-            this.containerModel.constructContainers(this.elementContainer, this.engine.layoutOption.container);
-        }
-
+        this.linkModel.constructLinks(this.elementContainer, this.elementList);
+    
         // 构建指针模型
-        if(this.engine.layoutOption.pointer) {
-            this.pointerModel.constructPointers(this.elementList, this.engine.layoutOption.pointer);
-        }
+        this.pointerModel.constructPointers(this.elementList);
+        
+        //console.log(this.elementContainer);
     }
 
     /**
@@ -96,6 +85,8 @@ export class DataModel {
                     if(!ele.updateShape(shape)) {
                         shape.x = ele.x;
                         shape.y = ele.y;
+                        shape.width = ele.width;
+                        shape.height = ele.height;
                         shape.rotation = ele.rotation;
                     }
                 });
@@ -115,40 +106,18 @@ export class DataModel {
             );
         });
 
-        if(this.engine.layoutOption.container) {
-            this.containerModel.updateContainerShape();
-        }
-
         // 若声明连接，则进行连接绑定
-        if(this.engine.layoutOption.link) {
-            this.linkModel.updateLinkShape();
-        }
-
+        this.linkModel.emitLinkShapes();
+        
         // 若存在指针，则处理指针
-        if(this.engine.layoutOption.pointer) {
-            this.pointerModel.updatePointerShape();
-        }
+        this.pointerModel.emitPointerShapes();
     }
 
     /**
      * 获取Elements
      */
     getElements(): ElementContainer {
-        // 筛去container元素，不暴露到engine的render方法（不允许用户修改container元素）
-        if(this.engine.layoutOption.container) {
-            let elementContainer: ElementContainer = {};
-
-            Object.keys(this.elementContainer).map(key => {
-                if(!this.engine.layoutOption.container[key]) {
-                    elementContainer[key] = this.elementContainer[key];
-                }
-            });
-
-            return elementContainer;
-        }
-        else {
-            return this.elementContainer;
-        }
+        return this.elementContainer;
     }
 
     /**
@@ -167,9 +136,7 @@ export class DataModel {
             eleConstructor = Element;
         }
         
-        ele = new eleConstructor();
-
-        ele.applySourceElement(sourceElement, this.engine.sourcesField? this.engine.sourcesField[elementName]: null);
+        ele = new eleConstructor(sourceElement);
         ele.elementId = elementId;
         ele.name = elementName;
         
@@ -178,29 +145,21 @@ export class DataModel {
             shapeName = null, 
             shape = null;
 
-        // 若是容器元素
-        if(this.engine.layoutOption.container && this.engine.layoutOption.container[elementName]) {
-            ele.type = 'container';
-            shapeOption = this.engine.layoutOption.container[elementName];
+        shapeOption = this.engine.layoutOption[elementName];
+        shapeName = typeof this.engine.elementsOption === 'object'?
+            this.engine.elementsOption[elementName]:
+            this.engine.elementsOption;
 
-            shape = this.viewModel.createShape(ele.elementId, 'rect', shapeOption);
-        }
-        // 普通元素
-        else {
-            shapeOption = this.engine.layoutOption[elementName];
-            shapeName = typeof this.engine.elementsOption === 'object'?
-                this.engine.elementsOption[elementName]:
-                this.engine.elementsOption;
+        contents = Array.isArray(shapeOption.content)? 
+            shapeOption.content.map(item => this.parserElementContent(ele, item)):
+            this.parserElementContent(ele, shapeOption.content);
 
-            contents = Array.isArray(shapeOption.content)? 
-                shapeOption.content.map(item => this.parserElementContent(ele, item)):
-                this.parserElementContent(ele, shapeOption.content);
-
-            shape = this.viewModel.createShape(ele.elementId, shapeName, { ...shapeOption, content: contents });
-        }
-
+        shape = this.viewModel.createShape(ele.elementId, shapeName, { ...shapeOption, content: contents });
+        
         // 初始化元素数据
         ele.shape = shape;
+        ele.width = shape.width;
+        ele.height = shape.height;
         ele.rotation = shape.rotation;
         ele.style = shape.style;
         ele.layoutOption = this.engine.layoutOption;
@@ -254,6 +213,50 @@ export class DataModel {
         });
     }
 
+    
+    /**
+     * 动态添加一个连接
+     * - 该方法用于让用户在render方法中动态生成一个非预先在source中声明的连接
+     * @param emitElement
+     * @param targetElement 
+     * @param linkName 
+     * @param anchorPair 
+     */
+    addLink(emitElement: Element, targetElement: Element, linkName: string, value: any = null, anchorPair: [anchor, anchor] = null) {
+        // 若emitElement中的linkName字段有且仅有一个元素
+        if(emitElement[linkName] && !Array.isArray(emitElement[linkName])) {
+            emitElement[linkName] = [emitElement[linkName], targetElement];
+        }
+        // 若emitElement中的linkName字段有多个元素
+        else if(emitElement[linkName] && Array.isArray(emitElement[linkName])) {
+            emitElement[linkName].push(targetElement);
+        }
+        // 若emitElement中的linkName字段为空
+        else {
+            emitElement[linkName] = targetElement;
+        }
+
+        this.linkModel.addLinkPair({
+            element: emitElement,
+            target: targetElement,
+            linkName,
+            sourceTarget: null,
+            label: value? value.toString(): null,
+            anchorPair
+        });
+    }
+    
+    /**
+     * 动态添加一个外部指针
+     * - 该方法用于让用户在render方法中动态生成一个非预先在source中声明的外部指针
+     * @param targetElement 
+     * @param pointerName 
+     * @param value 
+     */
+    addPointer(targetElement: Element, pointerName: string, value: string) {
+        this.pointerModel.addPointerPair(targetElement, pointerName, value);
+    }
+
     /**
      * 重置上一次的数据，包括：
      * - elementList
@@ -268,7 +271,6 @@ export class DataModel {
 
         this.linkModel.clear();
         this.pointerModel.clear();
-        this.containerModel.clear();
     }
 
     /**

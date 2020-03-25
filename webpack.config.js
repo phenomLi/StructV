@@ -5,7 +5,7 @@ module.exports = {
     entry: './src/StructV.ts',
     output: {
 		filename: './sv.js',
-		path: path.resolve(__dirname, './../Visualizer/src/StructV'),
+		//path: path.resolve(__dirname, './../Visualizer/src/StructV'),
      	libraryTarget: 'umd'
     },
     resolve: {

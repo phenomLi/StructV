@@ -2,10 +2,11 @@ import { ViewModel } from "./View/viewModel";
 import { Util } from "./Common/util";
 import { DataModel, ElementContainer } from "./Model/dataModel";
 import { LayoutOption, AnimationOption, EngineOption, ElementsOption } from "./option";
-import { Sources } from "./sources";
+import { Sources, SourceElement } from "./sources";
 import { Shape, Style } from "./Shapes/shape";
 import { Element } from "./Model/element";
 import { Group } from "./Model/group";
+import { anchor } from "./Model/linkModel";
 
 
 
@@ -17,6 +18,8 @@ export interface EngineInfo {
     name: string;
     // 元素构造器
     element?: { new(...arg): Element } | { [key: string]: { new(...arg): Element } };
+    // 私有图形构造器
+    shape?: { [key: string]: { new(...arg): Shape } };
     // 默认配置项
     defaultOption: EngineOption;
 }
@@ -38,9 +41,7 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     private viewModel: ViewModel = null;
 
     // Element构造函数容器，用作存放该引擎扩展的Element
-    ElementsTable: { [key: string]: { new(): Element } } = {};
-    // 源数据字段
-    sourcesField: { [key: string]: string[] } = null;
+    ElementsTable: { [key: string]: { new(sourceElement: SourceElement): Element } } = {};
     // 图形配置项
     elementsOption: ElementsOption;
     // 布局配置项
@@ -54,13 +55,14 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     };
 
     // 是否正在执行视图更新
-    public isViewUpdatingFlag: boolean = false;
+    isViewUpdatingFlag: boolean = false;
 
     // Shape构造函数容器，用作存放扩展的Shape（基本上为Composite）
-    static ShapesTable: {[key: string]: {
-        constructor: { new(id: string, name: string, opt: any): Shape },
-        scope: string
-    } } = {};
+
+    // 使用registerShape函数注册的图形将被存放在此处，任何子Engine都可访问到这些图形（全局）
+    static ShapesTable: {[key: string]: { new(id: string, name: string, opt: any): Shape }} = {};
+    // 使用Engine的构造函数注册的图形将被存放在此处，只有注册该图形的Engine可访问到这些图形（私有）
+    scopedShapesTable: {[key: string]: { new(id: string, name: string, opt: any): Shape }} = {};
 
     // 交互插件（TODO）
     // interactions: Interaction[] = null;
@@ -75,6 +77,7 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
         this.layoutOption = engineInfo.defaultOption.layout as LayoutOption;
         Util.merge(this.animationOption, engineInfo.defaultOption.animation);
 
+        // 若有自定义Element，注册
         if(engineInfo.element) {   
             // 只有一种元素
             if(typeof engineInfo.element === 'function') {
@@ -84,6 +87,13 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
             }
 
             this.ElementsTable = engineInfo.element;
+        }
+
+        // 若有私有自定义图形，注册
+        if(engineInfo.shape) {
+            Object.keys(engineInfo.shape).map(name => {
+                this.scopedShapesTable[name] = engineInfo.shape[name];
+            });
         }
 
         this.viewModel = new ViewModel(this, container);
@@ -171,6 +181,29 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     }
 
     /**
+     * 动态添加一个连接信息
+     * - 该方法用于让用户在render方法中动态生成一个非预先在source中声明的连接
+     * @param emitElement
+     * @param targetElement 
+     * @param linkName 
+     * @param anchorPair 
+     */
+    public link(emitElement: Element, targetElement: Element, linkName: string, anchorPair: [anchor, anchor] = null) {
+        this.dataModel.addLink(emitElement, targetElement, linkName, anchorPair);
+    }
+
+    /**
+     * 动态添加一个外部指针
+     * - 该方法用于让用户在render方法中动态生成一个非预先在source中声明的外部指针
+     * @param targetElement 
+     * @param referName 
+     * @param referValue 
+     */
+    public refer(targetElement: Element, referName: string, referValue: string) {
+        this.dataModel.addPointer(targetElement, referName, referValue);
+    }
+
+    /**
      * 创建一个静态文本
      * @param content 
      * @param style 
@@ -241,11 +274,8 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
 /**
  * 注册一个或多个图形
  */
-export function RegisterShape(target: { new(...arg): Shape }, shapeName: string, scope: string = null) {
-    Engine.ShapesTable[shapeName] = {
-        constructor: target,
-        scope
-    };
+export function RegisterShape(target: { new(...arg): Shape }, shapeName: string) {
+    Engine.ShapesTable[shapeName] = target;
     target.prototype.name = shapeName;
 }
 

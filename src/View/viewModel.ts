@@ -6,6 +6,7 @@ import { Shape, mountState } from "../Shapes/shape";
 import { Util } from "../Common/util";
 import { Composite } from "../Shapes/composite";
 import { ElementContainer } from "../Model/dataModel";
+import { Text } from "../Shapes/text";
 
 
 // 图形容器类型
@@ -52,16 +53,18 @@ export class ViewModel {
     createShape(id: string, shapeName: string, opt): Shape {
         let shapeConstruct = Engine.ShapesTable[shapeName];
 
-        // 若图形没有注册，报错
-        Util.assert(
-            shapeConstruct === undefined || 
-            (shapeConstruct.scope && shapeConstruct.scope !== this.engine.getName()), 
-        '图形' + shapeName + ' 未注册！');
+        // 全局图形表没有，去私有表找
+        if(shapeConstruct === undefined) {
+            shapeConstruct = this.engine.scopedShapesTable[shapeName];
+        }
+
+        // 若都找不到图形，报错
+        Util.assert(shapeConstruct === undefined, '图形' + shapeName + ' 未注册！');
 
         let shape = this.reuseShape(id, shapeName, opt);
         // 若没有找到复用的图形，则创建新图形
         if(shape === null) {
-            shape = new shapeConstruct.constructor(id, shapeName, opt);
+            shape = new shapeConstruct(id, shapeName, opt);
         }
 
         // 若图形是复合图形，则创建子图形
@@ -160,6 +163,10 @@ export class ViewModel {
             existShape.restoreData();
             existShape.applyShapeOption(opt);
             existShape.visible = true;
+
+            if(existShape instanceof Text) {
+                existShape.updateTextSize(existShape.zrenderShape);
+            }
 
             return existShape;
         }

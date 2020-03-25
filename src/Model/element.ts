@@ -1,5 +1,5 @@
 import { Shape, Style } from '../Shapes/shape';
-import { SourceElement } from '../sources';
+import { SourceElement, LinkData } from '../sources';
 import { LayoutOption } from '../option';
 import { BoundingRect, Bound } from '../View/boundingRect';
 
@@ -10,11 +10,12 @@ export class Element<T extends SourceElement = SourceElement> {
     id: any;
     elementId: string;
     name: string = 'element';
-    type: string = 'element';
 
     x: number = 0;
     y: number = 0;
     rotation: number = 0;
+    width: number = 0;
+    height: number = 0;
     style: Style = null;
 
     shape: Shape = null;
@@ -26,44 +27,18 @@ export class Element<T extends SourceElement = SourceElement> {
      * 应用源数据元素的属性
      * @param sourceElement 
      */
-    applySourceElement(sourceElement: T, field: string[]) {
-        // 若有已声明的默认字段，则按照字段复制
-        if(field) {
-            field.map(prop => {
-                // 复制sourceElement中存在的字段到element
-                if(sourceElement[prop] !== undefined) {
-                    this[prop] = sourceElement[prop];
-                }
-    
-                // element中存在sourceElement中不存在的字段，则element删除该字段
-                if(sourceElement[prop] === undefined && this[prop] !== undefined) {
-                    delete this[prop];
-                }
-            });
-        }
-        // 若没有，则全部复制
-        else {
-            Object.keys(sourceElement).map(prop => {
-                this[prop] = sourceElement[prop];
-            });
-        }
-    }
-
-
-    getWidth(): number {
-        return this.shape.width;
-    }
-
-    getHeight(): number {
-        return this.shape.height;
+    constructor(sourceElement: T) {
+        Object.keys(sourceElement).map(prop => {
+            this[prop] = sourceElement[prop];
+        });
     }
 
     /**
      * 获取元素包围盒
      */
     getBound(): BoundingRect {
-        let w = this.getWidth(),
-            h = this.getHeight();
+        let w = this.width,
+            h = this.height;
 
         let originBound = {
             x: this.x - w / 2,
@@ -94,8 +69,9 @@ export class Element<T extends SourceElement = SourceElement> {
      * @param targetEle 
      * @param linkStyle
      * @param linkName
+     * @param sourceTarget
      */
-    onLink(targetEle: Element, linkStyle: Style, linkName: string) {};
+    onLink(targetEle: Element, linkStyle: Style, linkName: string, sourceTarget: LinkData) {};
 
     /**
      * 当指向结点时触发

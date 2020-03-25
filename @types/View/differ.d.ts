@@ -5,7 +5,8 @@ export declare enum patchType {
     REMOVE = 1,
     POSITION = 2,
     ROTATION = 3,
-    STYLE = 4
+    SIZE = 4,
+    STYLE = 5
 }
 export interface patchInfo {
     type: number;

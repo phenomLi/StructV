@@ -1,12 +1,13 @@
 
-
 {
     "compilerOptions": {
         "target": "ES2015",
         "module": "commonJS",
         "experimentalDecorators": true,
-        "outDir": "./../Visualizer/src/StructV",
-        "declaration": true
+        "outDir": "./../Demos/src/StructV",
+        "declaration": true,
+        //"allowJs": true,
+        "project": "./src"
     },
 	"exclude": [		
 		"node_modules"

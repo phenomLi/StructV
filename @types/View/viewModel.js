@@ -6,6 +6,7 @@ const differ_1 = require("./differ");
 const shape_1 = require("../Shapes/shape");
 const util_1 = require("../Common/util");
 const composite_1 = require("../Shapes/composite");
+const text_1 = require("../Shapes/text");
 class ViewModel {
     constructor(engine, container) {
         this.engine = engine;
@@ -34,13 +35,16 @@ class ViewModel {
      */
     createShape(id, shapeName, opt) {
         let shapeConstruct = engine_1.Engine.ShapesTable[shapeName];
-        // 若图形没有注册，报错
-        util_1.Util.assert(shapeConstruct === undefined ||
-            (shapeConstruct.scope && shapeConstruct.scope !== this.engine.getName()), '图形' + shapeName + ' 未注册！');
+        // 全局图形表没有，去私有表找
+        if (shapeConstruct === undefined) {
+            shapeConstruct = this.engine.scopedShapesTable[shapeName];
+        }
+        // 若都找不到图形，报错
+        util_1.Util.assert(shapeConstruct === undefined, '图形' + shapeName + ' 未注册！');
         let shape = this.reuseShape(id, shapeName, opt);
         // 若没有找到复用的图形，则创建新图形
         if (shape === null) {
-            shape = new shapeConstruct.constructor(id, shapeName, opt);
+            shape = new shapeConstruct(id, shapeName, opt);
         }
         // 若图形是复合图形，则创建子图形
         if (shape instanceof composite_1.Composite) {
@@ -122,6 +126,9 @@ class ViewModel {
             existShape.restoreData();
             existShape.applyShapeOption(opt);
             existShape.visible = true;
+            if (existShape instanceof text_1.Text) {
+                existShape.updateTextSize(existShape.zrenderShape);
+            }
             return existShape;
         }
         return null;

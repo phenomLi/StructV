@@ -35,12 +35,7 @@ export interface LinkOption {
     show: string | [string, string];
 }
 
-// 容器图形配置项
-export interface ContainerOption extends BaseOption {
-    style: Partial<Style>;
-    padding: number | [number, number, number, number];
-    anchors: (w: number, h: number, childrenLength: number) => anchorSet;
-}
+
 
 
 // 所有视图元素配置项
@@ -56,8 +51,6 @@ export interface LayoutOption {
     pointer: { [k: string]: Partial<PointerOption> };
     // 连接线图形配置
     link: { [k: string]: Partial<LinkOption> };
-    // 容器图形配置项
-    container: { [k: string]: Partial<ContainerOption> };
     // 是否自动将可视图形移到画布中央
     autoAdjust: boolean;
 }

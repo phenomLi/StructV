@@ -1,9 +1,10 @@
 import { ElementContainer } from "./Model/dataModel";
 import { LayoutOption, AnimationOption, EngineOption, ElementsOption } from "./option";
-import { Sources } from "./sources";
+import { Sources, SourceElement } from "./sources";
 import { Shape, Style } from "./Shapes/shape";
 import { Element } from "./Model/element";
 import { Group } from "./Model/group";
+import { anchor } from "./Model/linkModel";
 /**
  * 注册一个可视化引擎所需的信息
  */
@@ -14,6 +15,11 @@ export interface EngineInfo {
     } | {
         [key: string]: {
             new (...arg: any[]): Element;
+        };
+    };
+    shape?: {
+        [key: string]: {
+            new (...arg: any[]): Shape;
         };
     };
     defaultOption: EngineOption;
@@ -27,11 +33,8 @@ export declare class Engine<S extends Sources = Sources, P extends EngineOption 
     private viewModel;
     ElementsTable: {
         [key: string]: {
-            new (): Element;
+            new (sourceElement: SourceElement): Element;
         };
-    };
-    sourcesField: {
-        [key: string]: string[];
     };
     elementsOption: ElementsOption;
     layoutOption: LayoutOption;
@@ -39,10 +42,12 @@ export declare class Engine<S extends Sources = Sources, P extends EngineOption 
     isViewUpdatingFlag: boolean;
     static ShapesTable: {
         [key: string]: {
-            constructor: {
-                new (id: string, name: string, opt: any): Shape;
-            };
-            scope: string;
+            new (id: string, name: string, opt: any): Shape;
+        };
+    };
+    scopedShapesTable: {
+        [key: string]: {
+            new (id: string, name: string, opt: any): Shape;
         };
     };
     constructor(container: HTMLElement, engineInfo: EngineInfo);
@@ -70,6 +75,23 @@ export declare class Engine<S extends Sources = Sources, P extends EngineOption 
      * 获取引擎名称
      */
     getName(): string;
+    /**
+     * 动态添加一个连接信息
+     * - 该方法用于让用户在render方法中动态生成一个非预先在source中声明的连接
+     * @param emitElement
+     * @param targetElement
+     * @param linkName
+     * @param anchorPair
+     */
+    link(emitElement: Element, targetElement: Element, linkName: string, anchorPair?: [anchor, anchor]): void;
+    /**
+     * 动态添加一个外部指针
+     * - 该方法用于让用户在render方法中动态生成一个非预先在source中声明的外部指针
+     * @param targetElement
+     * @param referName
+     * @param referValue
+     */
+    refer(targetElement: Element, referName: string, referValue: string): void;
     /**
      * 创建一个静态文本
      * @param content
@@ -106,4 +128,4 @@ export declare class Engine<S extends Sources = Sources, P extends EngineOption 
  */
 export declare function RegisterShape(target: {
     new (...arg: any[]): Shape;
-}, shapeName: string, scope?: string): void;
+}, shapeName: string): void;

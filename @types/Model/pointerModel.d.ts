@@ -1,8 +1,7 @@
-import { Engine } from "../engine";
 import { DataModel } from "./dataModel";
 import { Element } from "./element";
 import { ViewModel } from "../View/viewModel";
-import { PointerOption } from "../option";
+import { LayoutOption } from "../option";
 import { Line } from "../SpecificShapes/line";
 export interface PointerPair {
     pointerShape: Line;
@@ -14,25 +13,31 @@ export interface PointerPair {
  * 指针处理器
  */
 export declare class PointerModel {
-    private engine;
     private dataModel;
     private viewModel;
+    private layoutOption;
+    private pointerOptions;
     private pointerPairs;
-    constructor(engine: Engine, dataModel: DataModel, viewModel: ViewModel);
+    constructor(dataModel: DataModel, viewModel: ViewModel, layoutOption: LayoutOption);
     /**
      * 构建指针模型
      * @param elementList
      * @param pointerOptions
      */
-    constructPointers(elementList: Element[], pointerOptions: {
-        [key: string]: Partial<PointerOption>;
-    }): void;
+    constructPointers(elementList: Element[]): void;
+    /**
+     * 添加一个外部指针信息pointerPair
+     * @param targetElement
+     * @param pointerName
+     * @param labels
+     */
+    addPointerPair(targetElement: Element, pointerName: string, labels: string | string[]): void;
     /**
      * 根据配置项，更新指针图形
      * @param pointerOptions
      * @param elementList
      */
-    updatePointerShape(): void;
+    emitPointerShapes(): void;
     /**
      * 外部指针指向某结点
      * @param pointerPair
