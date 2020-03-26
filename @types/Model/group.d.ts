@@ -5,7 +5,7 @@ import { BoundingRect } from "../View/boundingRect";
  */
 export declare class Group {
     elementId: string;
-    elements: Array<Element | Group>;
+    private elements;
     constructor(...arg: Array<Element | Group>);
     /**
      * 添加element
@@ -21,6 +21,8 @@ export declare class Group {
      * 获取group的包围盒
      */
     getBound(): BoundingRect;
+    getWidth(): number;
+    getHeight(): number;
     /**
      * 位移group
      * @param dx

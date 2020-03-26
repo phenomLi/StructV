@@ -10,7 +10,7 @@ import { Vector } from "../Common/vector";
  */
 export class Group {
     elementId: string;
-    elements: Array<Element | Group> = [];
+    private elements: Array<Element | Group> = [];
 
     constructor(...arg: Array<Element | Group>) {
         this.elementId = Util.generateId();
@@ -42,9 +42,15 @@ export class Group {
      * 获取group的包围盒
      */
     getBound(): BoundingRect {
-        return this.elements.map(item => item.getBound()).reduce((total, cur) => {
-            return Bound.union(total, cur);
-        });
+        return Bound.union(...this.elements.map(item => item.getBound()));
+    }
+
+    getWidth(): number {
+        return this.getBound().width;
+    }
+
+    getHeight(): number {
+        return this.getBound().height;
     }
 
     /**

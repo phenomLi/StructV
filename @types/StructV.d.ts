@@ -15,7 +15,7 @@ export declare const SV: {
         assert(condition: boolean, errorText: string): void;
         anchor2position(x: number, y: number, width: number, height: number, rotation: number, anchor: import("./Model/linkModel").anchor, offset?: number): [number, number];
         getClassName(classConstructor: any): string;
-        textParser(text: string): string | string[];
+        textParser(text: string): import("./sources").PointerData;
     };
     Bound: {
         fromPoints(points: [number, number][]): import("./View/boundingRect").BoundingRect;

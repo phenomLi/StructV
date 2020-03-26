@@ -34,9 +34,13 @@ class Group {
      * 获取group的包围盒
      */
     getBound() {
-        return this.elements.map(item => item.getBound()).reduce((total, cur) => {
-            return boundingRect_1.Bound.union(total, cur);
-        });
+        return boundingRect_1.Bound.union(...this.elements.map(item => item.getBound()));
+    }
+    getWidth() {
+        return this.getBound().width;
+    }
+    getHeight() {
+        return this.getBound().height;
     }
     /**
      * 位移group

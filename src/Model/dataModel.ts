@@ -53,14 +53,20 @@ export class DataModel {
      */
     constructElements(sources: Sources) { 
         if(Array.isArray(sources)) {
-            this.elementContainer['element'] = sources.map(item => {
-                return this.createElement(item, 'element');
+            this.elementContainer['element'] = [];
+            sources.map(item => {
+                if(item) {
+                    this.elementContainer['element'].push(this.createElement(item, 'element'));
+                }
             });
         }
         else {
             Object.keys(sources).map(prop => {
-                this.elementContainer[prop] = sources[prop].map(item => {
-                    return this.createElement(item, prop);
+                this.elementContainer[prop] = [];
+                sources[prop].map(item => {
+                    if(item) {
+                        this.elementContainer[prop].push(this.createElement(item, prop));
+                    }
                 });
             });
         }

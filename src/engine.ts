@@ -7,6 +7,7 @@ import { Shape, Style } from "./Shapes/shape";
 import { Element } from "./Model/element";
 import { Group } from "./Model/group";
 import { anchor } from "./Model/linkModel";
+import { SourcesProxy } from "./Model/sourcesProxy";
 
 
 
@@ -31,14 +32,14 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     private id: string;
     // 引擎名称
     public name: string = 'framework';
-    // 源数据集
-    private sources: S = null;
     // 序列化的源数据
     private stringifySources: string = null;
     // 数据模型控制器
     private dataModel: DataModel = null;
     // 视图模型控制器
     private viewModel: ViewModel = null;
+    // 源数据代理器
+    private sourcesProxy: SourcesProxy = null;
 
     // Element构造函数容器，用作存放该引擎扩展的Element
     ElementsTable: { [key: string]: { new(sourceElement: SourceElement): Element } } = {};
@@ -56,6 +57,8 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
 
     // 是否正在执行视图更新
     isViewUpdatingFlag: boolean = false;
+    // 代理过的源数据
+    proxySources: S = null;
 
     // Shape构造函数容器，用作存放扩展的Shape（基本上为Composite）
 
@@ -98,21 +101,22 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
 
         this.viewModel = new ViewModel(this, container);
         this.dataModel = new DataModel(this, this.viewModel);
+        this.sourcesProxy = new SourcesProxy(this);
     }
 
     /**
      * 输入源数据
      * （可视化主流程）
      * @param sources 
-     * @param callback
+     * @param proxySources
      */
-    public source(sources: S, callback?: ((elements: ElementContainer) => void)) {
+    public source(sources: S, proxySources: boolean = false): void | S {
         // 如果正在执行视图更新，则取消该次动作（避免用户频繁点击）
         if(!this.animationOption.enableSkip && this.isViewUpdatingFlag) {
             return;
         }
         // 若不输入源数据而且之前也没有输入过源数据，则什么也不干
-        if(sources === undefined && this.sources === null) {
+        if(sources === undefined) {
             return;
         }
 
@@ -136,10 +140,18 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
         // ---------------------------------------------------
 
         // 重置数据
-        this.reset(sources, stringifySources);
+        this.reset(stringifySources);
 
-        // 执行回调
-        callback && typeof callback === 'function' && callback(this.dataModel.getElements());
+        // 若关闭源数据代理且之前代理过的，则取消上次代理
+        if(proxySources === false && this.proxySources) {
+            this.sourcesProxy.revoke(this.proxySources);
+        }
+
+        // 若开启源数据代理，进行源数据代理
+        if(proxySources && sources !== this.proxySources) {
+            this.proxySources = this.sourcesProxy.proxy(sources);
+            return this.proxySources;
+        }
     }
 
     /**
@@ -162,8 +174,11 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
         this.viewModel.resetData();
         this.viewModel.clearShape();
 
-        this.sources = null;
         this.stringifySources = null;
+        if(this.proxySources) {
+            this.sourcesProxy.revoke(this.proxySources);
+            this.proxySources = null;
+        }
     }
 
     /**
@@ -241,11 +256,10 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
      * @param sources
      * @param stringifySources
      */
-    private reset(sources: S, stringifySources: string) {
+    private reset(stringifySources: string) {
         this.dataModel.resetData();
         this.viewModel.resetData();
 
-        this.sources = sources;
         this.stringifySources = stringifySources;
     }
 

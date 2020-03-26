@@ -27,10 +27,10 @@ export interface EngineInfo {
 export declare class Engine<S extends Sources = Sources, P extends EngineOption = EngineOption> {
     private id;
     name: string;
-    private sources;
     private stringifySources;
     private dataModel;
     private viewModel;
+    private sourcesProxy;
     ElementsTable: {
         [key: string]: {
             new (sourceElement: SourceElement): Element;
@@ -40,6 +40,7 @@ export declare class Engine<S extends Sources = Sources, P extends EngineOption 
     layoutOption: LayoutOption;
     animationOption: AnimationOption;
     isViewUpdatingFlag: boolean;
+    proxySources: S;
     static ShapesTable: {
         [key: string]: {
             new (id: string, name: string, opt: any): Shape;
@@ -55,9 +56,9 @@ export declare class Engine<S extends Sources = Sources, P extends EngineOption 
      * 输入源数据
      * （可视化主流程）
      * @param sources
-     * @param callback
+     * @param proxySources
      */
-    source(sources: S, callback?: ((elements: ElementContainer) => void)): void;
+    source(sources: S, proxySources?: boolean): void | S;
     /**
      * 应用配置项
      * @param opt

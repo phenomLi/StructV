@@ -54,11 +54,11 @@ export const SV = {
 
     /**
      * 创建一个可视化引擎
-     * @param engineConstruct 
      * @param container 
+     * @param engineConstruct 
      * @param opt 
      */
-    create(engineConstruct: { new(container: HTMLElement): Engine }, container: HTMLElement, opt: EngineOption): Engine {
+    create(container: HTMLElement, engineConstruct: { new(container: HTMLElement): Engine }, opt: EngineOption): Engine {
         engineConstruct['id'] = Util.generateId();
 
         let engine = new engineConstruct(container);
