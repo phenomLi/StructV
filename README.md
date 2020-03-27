@@ -4,6 +4,10 @@
 ### 简介
 **StructV**是一个用于构建数据可视化实例的基础引擎，底层图形库基于[zrender](https://github.com/ecomfe/zrender)。 StructV本身不直接提供可视化功能，而是提供可视化的基础设施和核心功能。使用StructV定制一个数据结构可视化实例，你只需关心视图的布局即可，剩下的交给StructV即可。一旦可视化实例被构建好，当输入的源数据发生变化时，视图中的元素会以动画形式**动态响应**数据的变化。
 
+### 使用教程
+
+[可视化二叉树](https://github.com/phenomLi/Blog/issues/39)
+
 ### Feature
 - **Canvas渲染**
 - **编写组件语法，易于上手**
