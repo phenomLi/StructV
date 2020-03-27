@@ -15,7 +15,7 @@ export declare const SV: {
         assert(condition: boolean, errorText: string): void;
         anchor2position(x: number, y: number, width: number, height: number, rotation: number, anchor: import("./Model/linkModel").anchor, offset?: number): [number, number];
         getClassName(classConstructor: any): string;
-        textParser(text: string): import("./sources").PointerData;
+        textParser(text: string): string | string[];
     };
     Bound: {
         fromPoints(points: [number, number][]): import("./View/boundingRect").BoundingRect;
@@ -30,9 +30,9 @@ export declare const SV: {
     registerShape: typeof RegisterShape;
     /**
      * 创建一个可视化引擎
-     * @param engineConstruct
      * @param container
+     * @param engineConstruct
      * @param opt
      */
-    create(engineConstruct: new (container: HTMLElement) => Engine<import("./sources").Sources, EngineOption>, container: HTMLElement, opt: EngineOption): Engine<import("./sources").Sources, EngineOption>;
+    create(container: HTMLElement, engineConstruct: new (container: HTMLElement) => Engine<import("./sources").Sources, EngineOption>, opt: EngineOption): Engine<import("./sources").Sources, EngineOption>;
 };

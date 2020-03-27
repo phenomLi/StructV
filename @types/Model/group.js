@@ -63,7 +63,7 @@ class Group {
      * @param rotation
      * @param center
      */
-    rotation(rotation, center) {
+    rotate(rotation, center) {
         if (rotation === 0)
             return;
         let { x, y, width, height } = this.getBound(), cx = x + width / 2, cy = y + height / 2;
@@ -73,7 +73,7 @@ class Group {
         }
         this.elements.map(item => {
             if (item instanceof Group) {
-                item.rotation(rotation, [cx, cy]);
+                item.rotate(rotation, [cx, cy]);
             }
             else {
                 let d = vector_1.Vector.rotation(rotation, [item.x, item.y], [cx, cy]);

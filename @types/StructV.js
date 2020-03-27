@@ -41,11 +41,11 @@ exports.SV = {
     registerShape: engine_1.RegisterShape,
     /**
      * 创建一个可视化引擎
-     * @param engineConstruct
      * @param container
+     * @param engineConstruct
      * @param opt
      */
-    create(engineConstruct, container, opt) {
+    create(container, engineConstruct, opt) {
         engineConstruct['id'] = util_1.Util.generateId();
         let engine = new engineConstruct(container);
         engine.applyOption(opt);

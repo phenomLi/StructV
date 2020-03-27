@@ -64,5 +64,5 @@ export declare const Util: {
      * 文本解析
      * @param text
      */
-    textParser(text: string): import("../sources").PointerData;
+    textParser(text: string): string | string[];
 };

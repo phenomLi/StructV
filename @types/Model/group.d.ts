@@ -34,7 +34,7 @@ export declare class Group {
      * @param rotation
      * @param center
      */
-    rotation(rotation: number, center?: [number, number]): void;
+    rotate(rotation: number, center?: [number, number]): void;
     /**
      * 清空group
      */

@@ -5,7 +5,7 @@ export declare class Text extends Shape {
     constructor(id: string, name: string, opt: BaseShapeOption);
     defaultOption(baseOption: BaseOption): {
         zIndex: number;
-        content: import("../sources").PointerData;
+        content: string | string[];
         size: number | [number, number];
         show: string | [string, string];
     };
