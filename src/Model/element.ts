@@ -71,7 +71,28 @@ export class Element<T extends SourceElement = SourceElement> {
      * @param linkName
      * @param sourceTarget
      */
-    onLink(targetEle: Element, linkStyle: Style, linkName: string, sourceTarget: LinkData) {};
+    onLinkTo(targetEle: Element, linkStyle: Style, linkName: string, sourceTarget: LinkData) {};
+
+    /**
+     * 当结点被其他结点连接时触发
+     * @param emitEle 
+     * @param linkStyle 
+     * @param linkName 
+     * @param sourceTarget 
+     */
+    onLinkFrom(emitEle: Element, linkStyle: Style, linkName: string, sourceTarget: LinkData) {};
+
+    /**
+     * 当结点断开与其他结点触发
+     * @param linkName 
+     */
+    onUnlinkTo(linkName: string) {}
+
+    /**
+     * 当结点被其他结点断开连接时触发
+     * @param linkName 
+     */
+    onUnlinkFrom(linkName: string) {}
 
     /**
      * 当指向结点时触发
@@ -80,6 +101,12 @@ export class Element<T extends SourceElement = SourceElement> {
      * @param pointerValue
      */
     onRefer(pointerStyle: Style, pointerName: string, pointerValue: string | string[]) {}
+
+    /**
+     * 当指针离开该结点触发
+     * @param pointerName 
+     */
+    onUnrefer(pointerName: string) {}
 
     /**
      * 当元素发生变化

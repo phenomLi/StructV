@@ -17,6 +17,7 @@ export type anchorSet = { [key: number]: anchor };
 
 
 export interface LinkPair {
+    id: string;
     linkName: string;
     linkShape: Line;
     ele: Element;
@@ -39,6 +40,7 @@ export class LinkModel {
     private layoutOption: LayoutOption;
     private linkOptions: { [key: string]: Partial<LinkOption>};
 
+    private lastLinkPairs: LinkPair[] = [];
     private linkPairs: LinkPair[] = [];
     private labelList: Text[] = [];
     private labelAvoidLevel: number = 2;
@@ -104,14 +106,18 @@ export class LinkModel {
 
     /**
      * 根据配置项，更新连接图形
-     * @param linkOptions 
      * @param elementList 
      */
-    emitLinkShapes() {
+    emitLinkShapes(elementList: Element[]) {
+        // 处理被取消的连线
+        this.applyCanceledLink(elementList);
+
         // 遍历连接对队列，进行元素间的连接绑定
         for(let i = 0; i < this.linkPairs.length; i++) {
             this.linkElement(this.linkPairs[i]);
         }
+
+        this.lastLinkPairs = this.linkPairs;
     }
 
 
@@ -132,13 +138,14 @@ export class LinkModel {
 
         let element: Element = linkInfo.element, 
             target: Element = linkInfo.target, 
+            id: string = `${element.elementId}-${target.elementId}`,
             linkName: string = linkInfo.linkName, 
             label = linkInfo.label || this.linkOptions[linkName].label,
             sourceTarget = linkInfo.sourceTarget,
             anchorPair: [anchor, anchor] = linkInfo.anchorPair, 
             index: number = linkInfo.index,
             linkOption = this.linkOptions[linkName],
-            linkShape = this.viewModel.createShape(`${element.elementId}-${target.elementId}`, 'line', linkOption) as Line;
+            linkShape = this.viewModel.createShape(id, 'line', linkOption) as Line;
 
         if(anchorPair === null || anchorPair === undefined) {
             anchorPair = this.getAnchorPair(element, target, linkName, index);
@@ -146,6 +153,7 @@ export class LinkModel {
 
         // 添加一个linkPair到linkPairs队列
         this.linkPairs.push({
+            id,
             linkName,
             linkShape,
             ele: element,
@@ -158,8 +166,8 @@ export class LinkModel {
         });
 
         // 响应onLink钩子函数
-        element.onLink(target, linkShape.style, linkName, sourceTarget);
-        target.onLink(null, linkShape.style, linkName, sourceTarget);
+        element.onLinkTo(target, linkShape.style, linkName, sourceTarget);
+        target.onLinkFrom(element, linkShape.style, linkName, sourceTarget);
     }
 
     /**
@@ -456,8 +464,39 @@ export class LinkModel {
         return Util.anchor2position(x, y, hw * 2, hh * 2, ele.rotation, anchor);
     }
 
+    /**
+     * 找出对比上一次被取消的连线
+     * @param elementList
+     */
+    private applyCanceledLink(elementList: Element[]) {
+        // 若没有上一批连线对，不执行
+        if(this.lastLinkPairs.length === 0) {
+            return;
+        }
+
+        let length = this.lastLinkPairs.length,
+            lastLinkPair: LinkPair;
+
+        for(let i = 0; i < length; i++) {
+            lastLinkPair = this.lastLinkPairs[i];
+
+            if(this.linkPairs.find(item => item.id === lastLinkPair.id) === undefined) {
+                let element = elementList.find(item => item.elementId === lastLinkPair.ele.elementId),
+                    target = elementList.find(item => item.elementId === lastLinkPair.target.elementId);
+
+                if(element) {
+                    element.onUnlinkTo(lastLinkPair.linkName);
+                }
+
+                if(target) {
+                    target.onUnlinkFrom(lastLinkPair.linkName);
+                }
+            }
+        }
+    }
+
     public clear() {
-        this.linkPairs.length = 0;
+        this.linkPairs = [];
         this.labelList.length = 0;
     }
 }

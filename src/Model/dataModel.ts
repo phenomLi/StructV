@@ -113,10 +113,10 @@ export class DataModel {
         });
 
         // 若声明连接，则进行连接绑定
-        this.linkModel.emitLinkShapes();
+        this.linkModel.emitLinkShapes(this.elementList);
         
         // 若存在指针，则处理指针
-        this.pointerModel.emitPointerShapes();
+        this.pointerModel.emitPointerShapes(this.elementList);
     }
 
     /**

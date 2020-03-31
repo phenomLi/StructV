@@ -15,6 +15,9 @@ import { Node } from "./SpecificShapes/node";
 import { DualNode } from "./SpecificShapes/dualNode";
 import { Curve } from "./Shapes/curve";
 import { TwoCellBlock } from "./SpecificShapes/twoCellBlock";
+import { Vector } from "./Common/vector";
+import { SourceElement } from "./sources";
+
 
 
 
@@ -41,14 +44,12 @@ export const SV = {
     Engine: Engine,
     Util: Util,
     Bound: Bound,
-
+    Vector: Vector,
     // Element
     Element: Element,
-
     // Shape
     Composite: Composite,
-
-    // decorator
+    // register
     registerShape: RegisterShape,
 
 

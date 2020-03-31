@@ -19,6 +19,8 @@ export interface SourceElement {
 }
 
 // 源数据格式
-export type Sources = SourceElement[] | {
-    [key: string]: SourceElement[];
-};
+export type Sources = { } | SourceElement[];
+
+
+
+

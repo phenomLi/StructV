@@ -5,12 +5,10 @@
         "module": "commonJS",
         "experimentalDecorators": true,
         "outDir": "./../Demos/src/StructV",
-        "declaration": true,
-        //"allowJs": true,
-        "project": "./src"
+        "declaration": true
     },
 	"exclude": [		
-		"node_modules"
+		"node_modules", "examples"
 	]
 }
 
