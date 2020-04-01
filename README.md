@@ -10,7 +10,8 @@
 
 ### 使用教程
 
-[可视化二叉树](https://github.com/phenomLi/Blog/issues/39)
+- [可视化二叉树](https://github.com/phenomLi/Blog/issues/39)
+- [可视化哈希无向图](https://github.com/phenomLi/Blog/issues/40)
 
 <br />
 
