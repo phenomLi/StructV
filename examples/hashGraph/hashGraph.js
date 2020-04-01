@@ -51,11 +51,11 @@ class HashBlock extends SV.Composite {
 
 
 class GraphNode extends SV.Element {
-    onUnlinkFrom(linkName) {
-        if(linkName === 'hashLink') {
-            this.style.fill = '#f38181';
-        }
-    }
+    // onUnlinkFrom(linkName) {
+    //     if(linkName === 'hashLink') {
+    //         this.style.fill = '#f38181';
+    //     }
+    // }
 }
 
 

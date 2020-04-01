@@ -11,7 +11,7 @@ import { HashBlock } from "./hashBlock";
 
 
 /**
- * 二叉树可视化实例
+ * 哈希无向图可视化实例
  */
 export class HashGraph extends Engine<HashGraphSources, HashGraphOptions> {
 

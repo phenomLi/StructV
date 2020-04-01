@@ -1,30 +1,28 @@
-如果你没有看过第一篇教程，强烈建议先阅读：[StructV教程（一）：实现二叉树可视化](https://github.com/phenomLi/Blog/issues/39)
+如果你没有看过第一篇教程，强烈建议先阅读：[ StructV 教程（一）：实现二叉树可视化](https://github.com/phenomLi/Blog/issues/39)
 
 <br />
 
 今天来介绍一个复杂一点的例子：**哈希无向图可视化**，随便引出一点新东西。
 
 我不知道到底有没有“哈希无向图”这种奇奇怪怪的数据结构，我只是想通过引入这种结构：
-1. **展示StructV具有可视化任何结构的能力**
+1. **展示 StructV 具有可视化任何结构的能力**
 2. **利用该种结构，能覆盖到我想要介绍的新内容**
 
 首先，先看看我们想要的目标效果：
 ![](https://github.com/phenomLi/StructV/raw/master/images/微信截图_20200330200302.png)
 
 看着不难吧。左边哈希表的每一个值都指向右边无向图的每一个结点，然后无向图里的结点又各有连接。为什么我偏要拿这个结构作为第二篇教程的例子呢，因为该结构有两个特点：
-- **哈希表的每个元素的图形（就是两个格子那个），StructV中没有内置**
+- **哈希表的每个元素的图形（就是两个格子那个），StructV 中没有内置**
 - **该结构有两种不同类型的结点（哈希表元素和无向图结点）**
 
-So what should we do？我们要做的：还行老三样：**1.定义源数据**，**2.编写配置项**，**3.编写可视化实例类**。
+So what should we do ？我们要做的：还行老三样：**1.定义源数据**，**2.编写配置项**，**3.编写可视化实例类**。
 
 <br />
 
 ## Step 1
 
-##### Typescript:
-
-首先，新建`sources.ts`，确定我们的Sources。注意，现在我们有两种类型的结点了，分别为**哈希表元素**和**无向图结点**，所以对应的SourcesElement也有两种。
-对于哈希表元素的SourcesElement，我们观察最终效果图，不难看出，其只有两个关键的元素，分别是元素的id（左边格子）和指向图结点的指针（右边格子）。因此我们可以很容易地写出其SourcesElement结构：
+首先，新建 `sources.ts` ，确定我们的 Sources 。注意，现在我们有两种类型的结点了，分别为**哈希表元素**和**无向图结点**，所以对应的 SourcesElement 也有两种。
+对于哈希表元素的 SourcesElement ，我们观察最终效果图，不难看出，其只有两个关键的元素，分别是元素的 id（左边格子）和指向图结点的指针（右边格子）。因此我们可以很容易地写出其 SourcesElement 结构：
 ```typescript
 // ------------------------- sources.ts ------------------------- 
 
@@ -35,9 +33,9 @@ interface HashItemSourcesElement extends SourceElement {
     hashLink: { element: string, target: number }
 }
 ```
-在这里，我们用`hashLink`来命名指向图结点的指针的名称（命名真是一大难题）。观察到，这次我们指针域的值和上一篇的二叉树`BinaryTreeSourcesElement`有点不一样了，没有直接填结点的id，而是使用了一个`{ element: string, target: number }`的对象来描述，为什么要这样呢？
+在这里，我们用 `hashLink` 来命名指向图结点的指针的名称（命名真是一大难题）。观察到，这次我们指针域的值和上一篇的二叉树 `BinaryTreeSourcesElement` 有点不一样了，没有直接填结点的 id ，而是使用了一个 `{ element: string, target: number }` 的对象来描述，为什么要这样呢？
 
-StructV是根据一定的规则来处理SourceElement的指针域的，如果一个指针域的值为一个id（或者id组成的数组），例如上一篇的`BinaryTreeSourcesElement`的`children`：
+ StructV 是根据一定的规则来处理 SourceElement 的指针域的，如果一个指针域的值为一个 id（或者id组成的数组），例如上一篇的 `BinaryTreeSourcesElement` 的 `children` ：
 ```typescript
 // 一个二叉树结点
 { 
@@ -45,11 +43,11 @@ StructV是根据一定的规则来处理SourceElement的指针域的，如果一
     children: [2, 3] 
 }
 ```
-那么StructV会在同类型的SourceElement寻找目标结点。但是现在我们想在不同类型的SourceElement中建立指针连线，那么我们就要用`{ element: string, target: number }`这样的形式进行声明。其中`element`为目标元素的类型名称，`target`为目标元素的id。至于具体应该怎么填，我们之后再做讲解。
+那么 StructV 会在同类型的 SourceElement 寻找目标结点。但是现在我们想在不同类型的 SourceElement 中建立指针连线，那么我们就要用 `{ element: string, target: number }` 这样的形式进行声明。其中 `element` 为目标元素的类型名称，`target` 为目标元素的 id 。至于具体应该怎么填，我们之后再做讲解。
 
 <br />
 
-对于无向图的结点，我们观察得到其SourceElement也不复杂，同样只含id，data（图中的结点的字符不可能为id）和其他结点的指针域，那么我们也可以很快写出其具体定义。对于指向图其他结点的指针，这次我们用`graphLink`来命名。
+对于无向图的结点，我们观察得到其 SourceElement 也不复杂，同样只含  id ，data（图中的结点的字符不可能为 id ）和其他结点的指针域，那么我们也可以很快写出其具体定义。对于指向图其他结点的指针，这次我们用 `graphLink` 来命名。
 ```typescript
 // ------------------------- sources.ts ------------------------- 
 
@@ -61,16 +59,16 @@ interface GraphNodeSourcesElement extends SourceElement {
     graphLink: number | number[];
 }
 ```
-注意，因为所以图节点都只有指向其他图结点的指针，所以`graphLink`可以直接用id（number）表示。我们可以总结一下关于指针连线的指定规则：
-- **对于不同类型的SourceElement间的指针，需要用包含`element`和`target`的对象来指定**
-- **对于同类型SourceElement间的指针，则可以直接使用id表示**
+注意，因为所以图节点都只有指向其他图结点的指针，所以 `graphLink` 可以直接用 id（number）表示。我们可以总结一下关于指针连线的指定规则：
+- **对于不同类型的 SourceElement 间的指针，需要用包含 `element` 和 `target` 的对象来指定**
+- **对于同类型 SourceElement 间的指针，则可以直接使用id表示**
 
 <br />
 
-既然现在我们确定了两个SourceElement，那么理应就可以定义Sources的结构了。记得第一篇教程我们曾提到过：
-> 当有多种类型的SourcesElement时，Sources必须为对象，当只有一种类型的SourcesElement时，Sources便可简写为数组。
+既然现在我们确定了两个 SourceElement ，那么理应就可以定义 Sources 的结构了。记得第一篇教程我们曾提到过：
+> 当有多种类型的 SourcesElement 时，Sources 必须为对象，当只有一种类型的 SourcesElement 时，Sources 便可简写为数组。
 
-在二叉树的例子中，由于只有一种类型的SourceElement，因此Sources可以定义为一个数组，但是现在，我们必须把Sources定义为一个对象：
+在二叉树的例子中，由于只有一种类型的 SourceElement ，因此 Sources 可以定义为一个数组，但是现在，我们必须把 Sources 定义为一个对象：
 ```typescript
 // ------------------------- sources.ts ------------------------- 
 
@@ -79,60 +77,31 @@ export interface HashGraphSources {
     graphNode: GraphNodeSourcesElement[];
 }
 ```
-我们得到我们的`HashGraphSources`，其中`hashItem`为哈希表元素，`graphNode`为无向图结点。命名可随意，只要保证到时候输入的数据命名对的上就行。
+我们得到我们的 `HashGraphSources` ，其中 `hashItem` 为哈希表元素，`graphNode` 为无向图结点。命名可随意，只要保证到时候输入的数据命名对的上就行。
 
-`sources.ts`的完整代码如下：
-```typescript
-// ------------------------- sources.ts ------------------------- 
-
-import { SourceElement } from './StructV/sources';
-
-interface HashItemSourcesElement extends SourceElement {
-    id: number;
-    hashLink: { element: string, target: number }
-}
-
-interface GraphNodeSourcesElement extends SourceElement {
-    id: number;
-    data: string;
-    graphLink: number | number[];
-}
-
-
-export interface HashGraphSources {
-    hashItem: HashItemSourcesElement[];
-    graphNode: GraphNodeSourcesElement[];
-}
-```
+ `sources.ts` 的[完整代码](https://github.com/phenomLi/StructV/blob/master/examples/hashGraph/hashGraphTs/sources.ts)
 
 <br />
-
-##### Javascript:
-这一步跳过。
-
-<br />
-
 
 
 
 ## Step 2
 
-第二步编写默认配置项Options。
+第二步编写默认配置项 Options 。
 
 ### Step 2.1
 
-该步骤跟上一篇内容的方法大致相同，但是因为该例子有两种SourceElement，因此有一些地方更改和说明。
+该步骤跟上一篇内容的方法大致相同，但是因为该例子有两种        SourceElement ，因此有一些地方更改和说明。
 
-1. **首先，因为多类型SourceElement，因此元素配置项element需要从接受string改为接受接受一个对象，该对象与`HashGraphSources`格式相对应**
-2. **其次，对应布局配置项layout也需要作一些变化，`element`的字段需改为元素配置项element中对应的字段**
-3. **指针连线配置项link需添加两种指针连线**
+1. **首先，因为多类型 SourceElement ，因此元素配置项 element 需要从接受 string 改为接受接受一个对象，该对象与 `HashGraphSources` 格式相对应**
+2. **其次，对应布局配置项 layout 也需要作一些变化，`element` 的字段需改为元素配置项 element 中对应的字段**
+3. **指针连线配置项 link 需添加两种指针连线**
 
 具体应该怎么做？看下面代码：
 
 <br />
 
-##### Typescript:
-新建`options.ts`文件，写下以下内容：
+新建 `options.ts` 文件，写下以下内容：
 ```typescript
 // ------------------------- options.ts ------------------------- 
 
@@ -202,9 +171,9 @@ export interface HashGraphOptions extends EngineOption {
     };
 }
 ```
-`element`属性现在为一个对象，其中与`HashGraphSources`的属性（hashItem，graphNode）一致，分别表示每种SourceElement的可视化图形；`layout`中分别定义`hashItem`，`graphNode`的外观和样式；`link`中分别配置`HashItemSourcesElement`中的`hashLink`和`GraphNodeSourcesElement`中的`graphLink`。
+ `element` 属性现在为一个对象，其中与 `HashGraphSources` 的属性（hashItem，graphNode）一致，分别表示每种 SourceElement 的可视化图形； `layout` 中分别定义 `hashItem` ，`graphNode` 的外观和样式；`link`中分别配置 `HashItemSourcesElement` 中的 `hashLink` 和 `GraphNodeSourcesElement` 中的 `graphLink` 。
 
-之后，就是往里填充内容了。Emmmm。。。慢着，按照最终效果图，显然，无向图中的结点`graphNode`是圆形（circle），那么哈希元素项`hashItem`是什么图形呢？很遗憾，StructV中并没有内置这个图形，因此我们要使用它，必须利用StructV的自定义图形功能。如何做，我们先放一会再说，现在我们先给这个图形取个好听的名字，那就叫`hashBlock`吧。
+之后，就是往里填充内容了。Emmmm。。。慢着，按照最终效果图，显然，无向图中的结点 `graphNode` 是圆形（circle），那么哈希元素项 `hashItem` 是什么图形呢？很遗憾，StructV 中并没有内置这个图形，因此我们要使用它，必须利用 StructV 的自定义图形功能。如何做，我们先放一会再说，现在我们先给这个图形取个好听的名字，那就叫 `hashBlock` 吧。
 
 下面是配置项具体内容：
 ```typescript
@@ -262,669 +231,300 @@ export const HGOptions: HashGraphOptions = {
     }
 }
 ```
+`options.ts`的[完整代码](https://github.com/phenomLi/StructV/blob/master/examples/hashGraph/hashGraphTs/options.ts)
 
+### Step 2.2
 
+这一步我们将创建我们的自定义图形，在效果图里面，我们想要的图形是这样的：
+![](https://github.com/phenomLi/StructV/raw/master/images/微信截图_20200331151229.png)
 
-我们使用`dualNode`作为二叉树结点的可视化图形，`dualNode`是StructV的内置图形之一，它长这个样子：
-![](https://github.com/phenomLi/StructV/raw/master/images/微信截图_20200327160245.png)
-`dualNode`还好地还原了二叉树结点的结构特点--左右两个孩子结点域和中间一个data域（我们用id代替data）。如果StructV中没有想要的图形，我们还可以自己组合创建新的图形。
-`content`属性中的`[id]`表示取SourcesElement中`id`属性的值。`content`属性支持占位符，用`[attrName]`表示，其中`attrName`表示SourcesElement中的属性值。
+看起来一点都不复杂是吧，就是简单的两个正方形拼起来的图形。我们同样希望这样的简单图形在使用 StructV 创建时也同样很容易，很好。创建自定义图形和创建可视化实例类一样，都是通过继承某个基类来完成。
 
-`options.ts`文件的完整代码：
+还记得我们给这个图形起了个什么名字吗？新建一个 `hashBlock.ts` 文件，写下以下模板代码：
 ```typescript
-// ------------------------- options.ts ------------------------- 
+// ------------------------- hashBlock.ts ------------------------- 
 
-import { EngineOption } from './StructV/option';
-import { Style } from './StructV/Shapes/shape';
+import { Composite } from "./StructV/Shapes/composite";
+import { BaseShapeOption } from "./StructV/option";
 
-export interface BinaryTreeOptions extends EngineOption {
-    // 元素配置项
-    element: string;
-    // 布局配置项
-    layout: {
-        // 结点布局外观
-        element: {
-            // 结点尺寸
-            size: [number, number] | number;
-            // 结点文本
-            content: string;
-            // 结点样式
-            style: Partial<Style>;
-        };
-        // 指针连线声明
-        link: {
-            children: {
-                // 连线两端图案
-                markers: [string, string] | string;
-                // 连接锚点
-                contact: [[number, number], [number, number]] | [number, number];
-                // 连线样式
-                style: Partial<Style>;
-            }
-        };
-        // 结点水平间隔
-        xInterval: number;
-        // 结点垂直间隔
-        yInterval: number;
-        // 视图垂直居中
-        autoAdjust: boolean;
-    };
-    // 动画配置项
-    animation: {
-        // 是否允许跳过动画
-        enableSkip: boolean;
-        // 是否开启动画
-        enableAnimation: boolean;
-        // 缓动函数
-        timingFunction: string;
-        // 动画时长
-        duration: number;
-    };
-}
 
-export const BTOptions: BinaryTreeOptions = {
-    element: 'dualNode',
-    layout: {
-        element: {
-            size: [80, 40],
-            content: '[id]',
-            style: {
-                stroke: '#000',
-                fill: '#9EB2A1'
-            }
-        },
-        link: {
-            children: {
-                markers: ['circle', 'arrow'],
-                contact: [[3, 0], [1, 0]],
-                style: {
-                    fill: '#000',
-                    lineWidth: 2
-                }
-            }
-        },
-        xInterval: 60,
-        yInterval: 40,
-        autoAdjust: true
-    },
-    animation: {
-        enableSkip: true,
-        duration: 1000,
-        timingFunction: 'quinticOut',
-        enableAnimation: true
+export class HashBlock extends Composite {
+    constructor(id: string, name: string, opt: BaseShapeOption) {
+        super(id, name, opt);
+
     }
 }
 ```
+StructV 将每个图形都抽象为一个类，所有图形的类统称为 **Shape** 。可以看见父类往子类传递了 3 个参数，分别为图形的 id ，图形的名字和图形的配置项。我们可暂时不必深入了解 Shape  和这 3 个参数的详细作用，只要知道我们的 `hashBlock` 也是一个类，并继承于 **Composite** 。Composite 看字面意思是“组合，复合”的意思，这说明了我们的自定义图形 `hashBlock` 是复合而来的。由什么东西复合？答案是基础图形。在 StructV 中，内置的基础图形如下：
+- **Rect 矩形**
+- **Circle 圆形**
+- **Isogon 正多边形**
+- **PolyLine 折线**
+- **Curve 曲线**
+- **Arrow 箭头**
+- **Text 文本**
+
+也许你已经猜到了，我们的自定义图形只能由上述这些基础图形进行组合而成。也就是说，**我们不能创建一种新的基础图形，但是我们可以用这些基础图形组合出一种新图形**。我们称这些组成复合图形的基础图形为该图形的**子图形**。
+那么，现在问题就清晰了，创建一个自定义图形，我们只需要知道：
+1. 由哪些子图形组合
+2. 子图形的外观和样式怎么设置
+2. 子图形怎么组合（或者说怎么摆放）
+
+在 Composite 类中，我们提供了 `addSubShape` 方法用作添加子图形。通过在构造函数中调用 `addSubShape` 方法进行子图形的配置：
+```typescript
+// ------------------------- hashBlock.ts ------------------------- 
+
+import { Composite } from "./StructV/Shapes/composite";
+import { BaseShapeOption } from "./StructV/option";
+
+
+export class HashBlock extends Composite {
+    constructor(id: string, name: string, opt: BaseShapeOption) {
+        super(id, name, opt);
+
+        // 添加子图形
+        this.addSubShape({
+            cell1: {
+                shapeName: 'rect',
+                init: option => ({
+                    content: option.content[0],
+                }),
+                draw: (parent, block) => {
+                    let widthPart = parent.width / 2;
+    
+                    block.y = parent.y;
+                    block.x = parent.x - widthPart / 2;
+                    block.height = parent.height;
+                    block.width = widthPart;
+                }
+            }, 
+            cell2: {
+                shapeName: 'rect',
+                init: option => ({
+                    content: option.content[1],
+                    zIndex: -1,
+                    style: {
+                        fill: '#eee'
+                    }
+                }),
+                draw: (parent, block) => {
+                    let widthPart = parent.width / 2;
+    
+                    block.y = parent.y;
+                    block.x = parent.x + widthPart / 2;
+                    block.height = parent.height - block.style.lineWidth;
+                    block.width = widthPart;
+                }
+            }
+        });
+    }
+}
+```
+突然来了这么一大串是不是有点懵。我们来从外到内一步一步剖析这段新加的代码。首先，能看到 `addSubShape` 函数接受了一个对象作为参数，通过观察我们可以抽象出这个参数的结构：
+```typescript
+interface SubShapes {
+    // 子图形的别名
+    [key: string]: {
+        // 基础图形的名称
+        shapeName: string;
+        // 初始化子图形的外观和样式
+        init: (parentOption: BaseShapeOption, parentStyle: Style) => BaseShapeOption;
+        // 布局子图形
+        draw: (parent: Shape, subShape: Shape) => void;
+    }
+}
+```
+首先这个对象的属性名，如 `cell1`, `cell2` 都是这个子图形的别名，别名可以任取，但是不能重复。其中 `cell1` 就是 `hashBlock` 左边的正方形，同理 `cell2` 就是右边的那个。
+然后别名的值也是一个对象，这个对象里面配置了子图形的详细信息，分别是 `shapeName` ，`init` 和 `draw`。其中 `shapeName` 很明显啦就是基础图形的名字，决定了我们要选哪个基础图形作为子图形，例如上面 `cell1` 我们选了 `rect`，即矩形，那当然啦，因为 `hashBlock` 就是两个正方形组成的，因此同理`cell2` 。
+重点要讲的是 `init` 和 `draw` ，这两个属性均为函数。 `init` 用作初始化子图形的外观和样式，返回一个 `BaseShapeOption` 类型的值。 `BaseShapeOption` 类型是什么类型？还记得我们的 Options 里面的布局配置项 layout 吗：
+```typescript
+graphNode: {
+    size: number;
+    content: string;
+    style: Partial<Style>;
+};
+```
+这样的一组配置在 StructV 中称为一个 `BaseShapeOption` 。
+此外，`init` 还接受两个参数，分别为父图形的 `BaseShapeOption` 父图形的 `Style` ，子图形可根据这两个参数去配置自身的外观和样式。
+
+> 这样设计的意义何在？StructV 将一个自定义图形（或者说复合图形）视为一个整体对待，因此在配置我们的自定义图形时，图形的配置和样式项即 `BaseShapeOption` 和 `Style` 需要由某一途径传递至子图形，因为子图形（基础图形）才是真正被渲染出来的元素， Composite 只是抽象意义的结构。拿上面的例子来说，我们设置 `hashBlock` 的颜色 `fill: 'red'`，那么可视化引擎怎么知道究竟是把全部矩形设置为红色还是把左边或者右边的矩形设置为红色呢？这时候只要接受父图形的颜色传递下来的颜色根据需要定制即可。这跟 React 单向数据流动的道理是一样的。
+
+ `draw` 函数的作用清晰很多，就是设置子图形的布局。因为子图形的布局需要依赖父图形，因此与 `init` 一样，`draw` 接受两个参数，分别为 `parent` ：父图形实例，`subShape` ：子图形实例。具体布局的计算就不讲解了，相信大家都能看懂，就是简单地把长方形分割为两个正方形而已。
+
+目前为止我们的 `hashBlock` 算是基本完成了，只要我们理解了 `addSubShape` 方法，就可以创建无数的自定义图形。但是慢着，观察我们的效果图，可以发现 `hashBlock` 有一个锚点是位于图形内部的（右边正方形的中心），因此最后我们还需要使用自定义锚点功能。
+
+在自定义图形中通过重写 `defaultAnchors` 方法添加或修改锚点：
+```typescript
+// ------------------------- hashBlock.ts ------------------------- 
+
+import { Composite } from "./StructV/Shapes/composite";
+import { BaseShapeOption } from "./StructV/option";
+import { anchorSet } from "./StructV/Model/linkModel";
+
+
+export class HashBlock extends Composite {
+
+    // ...省略代码
+
+    /**
+     * 修改默认锚点
+     * @param baseAnchors 默认的5个锚点
+     * @param width 图形的宽
+     * @param height 图形的高
+     */
+    defaultAnchors(baseAnchors: anchorSet, width: number, height: number): anchorSet {
+        return {
+            ...baseAnchors,
+            1: [width / 4, 0]
+        };
+    }
+}
+```
+ `defaultAnchors` 方法接受 3 个参数：`baseAnchors` 默认的 5 个锚点，`width` 图形的宽， `height` 图形的高。并返回一个新的锚点集（anchorSet）。还记得默认的 5 个锚点是哪五个吗？回忆一下这张图：
+![](https://github.com/phenomLi/StructV/raw/master/images/微信截图_20200326200703.png)
+5 个锚点各自有对应的编号，而编号 1 的锚点为图形最右边的锚点。现在，我们在 `defaultAnchors` 中将编号为 1 的锚点重新设置为一个新的值，达到了修改默认锚点的目的。同理可以推断出，如果我们要添加锚点，只要在下面写除（0，1，2，3，4）外的值即可，如：
+```typescript
+return {
+    ...baseAnchors,
+    5: [width / 4, height / 4]
+};
+```
+表示我们添加了一个编号为 5 的新锚点。
+
+锚点的值`[width / 4, 0]`指定了锚点的相对位置，相对谁？**相对于图形的几何中心**，即（x，y）。因此，`[width / 4, 0]`表示该锚点的横坐标位于图形水平中心往右偏移`width / 4`，纵坐标位于图形垂直中心的位置，也就是 `hashBlock` 右边正方形的中心。
+![](https://github.com/phenomLi/StructV/raw/master/images/微信截图_20200331174210.png)
 
 <br />
 
-##### Javascript:
-对于js，我们当然也可以新建一个`options.js`文件保存你的配置项，然后用打包工具打包多个文件。但是本例中代码不多，使用打包工具有点小题大做，杀鸡用牛刀了，因此我们只新建一个`binaryTree.js`文件，把所有代码写到这一个文件即可，简单省事。
-```javascript
-// ------------------------- binaryTree.js ------------------------- 
+大功告成。
 
-const BTOptions = {
-    // ...同上
-}
-```
+`hashBlock.ts`的[完整代码](https://github.com/phenomLi/StructV/blob/master/examples/hashGraph/hashGraphTs/hashBlock.ts)
 
-现在我们可以进入第三步了。
+那么现在我们的 Options 也配置好了， `hashBlock` 也定义好了，顺理成章地，进入第三步。
+
 
 <br />
 
 ## Step 3
-这步是整个流程中最为重要的一步，直接决定了可视化视图的结果。在这一步我们将直接编写可视化实例的类，以完成二叉树可视化的构建。
-
-##### Typescript:
-首先，新建一个文件，命名为`binaryTree.ts`，写下以下模板代码：
+到了这步就比较简单了。和之前一样，新建 `hashGraph.ts`文件，并写下我们的模板代码：
 ```typescript
-// ------------------------- binaryTree.ts ------------------------- 
+// ------------------------- hashGraph.ts ------------------------- 
 
 import { Engine } from "./StructV/engine";
-import { BTOptions, BinaryTreeOptions } from "./option";
-import { BinaryTreeSources } from "./sources";
-import { Element } from "./StructV/Model/element";
+import { HashGraphSources } from "./sources";
+import { HashGraphOptions, HGOptions } from "./options";
+import { ElementContainer } from "./StructV/Model/dataModel";
+import { HashBlock } from "./hashBlock";
+
 
 /**
- * 二叉树可视化实例
+ * 哈希无向图可视化实例
  */
-export class BinaryTree extends Engine<BinaryTreeSources, BinaryTreeOptions> {
-    constructor(container: HTMLElement) {
-        super(container, {
-            name: 'BinaryTree',
-            defaultOption: BTOptions
-        });
-    }
-
-    render(elements: Element[], containerWidth: number, containerHeight: number) {}
-}
-```
-StructV以继承基类`Engine`以创建一个可视化实例的类，继承时`Engine`接受两个泛型，分别为源数据类型`BinaryTreeSources`和配置项类型`BinaryTreeOptions`，当然你想偷懒的话也可以不传。
-
-在构造函数中，需要往父构造函数中传入两个参数。第一个是可视化容器，是一个HTML元素，该参数决定了你将会在哪一个HTML元素中呈现你的可视化结果。第二个参数是可视化实例的一些必要信息，其中包括可视化实例的名称`name`和刚才编写好的默认配置项`defaultOption`。
-
-关键在于渲染函数`render`的内容，在这一步我们的主要工作就是在`render`函数中编写具体的可视化内容。`render`函数接受三个参数：
-- **elements：该参数是一个Element组成的数组（在本例）。"Element"是什么？貌似之前从未出现过。StructV会对输入的每一个SourcesElement进行重新包装和扩展，这个包装扩展后的SourcesElement就称为Element。Element相比SourcesElement添加了许多用于布局的属性，同时也保留着SourcesElement中原有的属性。在`render`函数中可以任意修改每一个Element的`x`，`y`，`rotation`，`width`，`height`甚至是`style`。然而有一点要注意的是，SourcesElement中所有的指针连线属性中的id都会被替换成真实的Element元素。例如：**
-```javascript
-// sourceElement
-{
-    id: 1,
-    children: [2, 3]
-}
-```
-**会被替换成：**
-```javascript
-// Element
-{
-    id: 1,
-    children: [Element, Element]
-}
-```
-那么在`render`函数中就可以很方便地访问到一个Element的指针目标Element了。比如我们可以直接使用`node.children[0]`访问到二叉树的左子节点。
-- **containerWidth：HTML容器的宽**
-- **containerHeight：HTML容器的高**
-
-接下来是`render`函数的具体实现。我们要做的是：**通过修改每一个Element的`x`，`y`坐标，使其满足二叉树的一般布局**。注意，Element的`x`，`y`无论对于什么图形，都代表该图形的几何中心坐标。
-```typescript
-// ------------------------- binaryTree.ts ------------------------- 
-
-import { Engine } from "./StructV/engine";
-import { BTOptions, BinaryTreeOptions } from "./option";
-import { Element } from "./StructV/Model/element";
-import { BinaryTreeSources } from "./sources";
-
-/**
- * 二叉树可视化实例
- */
-export class BinaryTree extends Engine<BinaryTreeSources, BinaryTreeOptions> {
+export class HashGraph extends Engine<HashGraphSources, HashGraphOptions> {
 
     constructor(container: HTMLElement) {
         super(container, {
-            name: 'BinaryTree',
-            defaultOption: BTOptions
+            name: 'HashGraph',
+            shape: {
+                hashBlock: HashBlock
+            },
+            defaultOption: HGOptions
         });
     } 
 
-    /**
-     * 对二叉树进行递归布局
-     * @param node 当前结点
-     * @param parent 父节点
-     * @param childIndex 左右孩子结点序号（0/1）
-     */
-    layout(node: Element, parent: Element, childIndex?: 0 | 1) {}
-
-    render(elements: Element[], containerWidth: number, containerHeight: number) {
-        let nodes = elements,
-            node: Element,
-            root: Element,
-            i;
-
-        // 首先找出根节点
-        for(i = 0; i < nodes.length; i++) {
-            node = nodes[i];
-            
-            if(nodes[i].root) {
-                root = nodes[i];
-                break;
-            }
-        }
-        
-        this.layout(root, null);
-    }
+    render(elements: ElementContainer) { }
 }
 ```
-二叉树的规律性很明显，只要从根节点开始进行向下递归布局即可，所有我们首先要把根节点找出来。还记得我们的`BinaryTreeSourcesElement`是怎样定义的吗：
-```typescript
-interface BinaryTreeSourcesElement extends SourceElement {
-    id: string | number;
-    root?: boolean;
-    children?: [string, string] | [number, number];
-}
-```
-因此我们只需要找出`root`为`true`的结点即为根节点。另外，我们还定义了一个`layout`函数专门用于二叉树结点的布局。传入根节点，接下来便是`layout`函数的实现。二叉树结点的两孩子结点始终位于父节点下方两侧，因此很容易地就可以写出以下代码：
-```typescript
-// ------------------------- binaryTree.ts ------------------------- 
+注意这次不一样的地方。
 
-import { Engine } from "./StructV/engine";
-import { BTOptions, BinaryTreeOptions } from "./option";
-import { Element } from "./StructV/Model/element";
-import { BinaryTreeSources } from "./sources";
+首先我们需要在构造函数中使用 `shape` 字段注册我们刚刚创建的自定义图形，属性的名称就是图形名称，属性的值为图形的类。使用 `shape` 我们可以一下子注册多个自定义图形。注册后的图形仅在该可视化实例中能使用。
+> 假如我们创建了一个很棒的图形，想要在所有可视化实例都能使用，难道每个实例都要注册一遍吗，有什么更好的办法呢？ StructV提供了一个 `RegisterShape` 函数来给用户注册**全局图形**，使用方法为：`RegisterShape(图形类, 图形名称)`。
+
+其次，`render` 函数中的参数 `elements` 的类型由 `Element[]` 改为 `ElementContainer` 。 为什么这次不是 `Element[]` 了？还是那个原因，因为现在我们有多种类型的 SourcesElement 了。 `ElementContainer` 的格式与 Sources 保持一致，比如我们想要访问无向图的结点，只要：
+```typescript
+let graphNodes = elements.graphNode;
+```
+即可。
+
+<br />
+
+之后便是编写关于布局的代码了，说实话貌似这次的布局比二叉树还要简单一点，稍微有点难度的便是无向图的那个环形布局，不过幸好StructV提供了向量相关操作的工具 `Vector` 对象，使得运算简化了许多。
+
+关键布局代码如下：
+```typescript
+// ------------------------- hashGraph.ts ------------------------- 
 
 /**
- * 二叉树可视化实例
+ * 布局无向图
+ * @param node 
  */
-export class BinaryTree extends Engine<BinaryTreeSources, BinaryTreeOptions> {
+layoutGraph(graphNodes: GraphNode[]) {
+    let radius = this.layoutOption.radius,
+        intervalAngle = 2 * Math.PI / graphNodes.length,
+        group = this.group(),
+        i;
 
-    // ...省略代码 
+    for (i = 0; i < graphNodes.length; i++) {
+        let [x, y] = Vector.rotation(-intervalAngle * i, [0, -radius]);
 
-    /**
-     * 对二叉树进行递归布局
-     * @param node 当前结点
-     * @param parent 父节点
-     * @param childIndex 左右孩子结点序号（0/1）
-     */
-    layout(node: Element, parent: Element, childIndex?: 0 | 1) {
-        if(!node) {
-            return null;
-        }
+        graphNodes[i].x = x + this.layoutOption.distance;
+        graphNodes[i].y = y;
 
-        let width = node.width,
-            height = node.height;
-
-        // 若该结点存在父节点，则对自身进行布局
-        if(parent) {
-            node.y = parent.y + this.layoutOption.yInterval + height;
-
-            // 左节点
-            if(childIndex === 0) {
-                node.x = parent.x - this.layoutOption.xInterval / 2 - width / 2;
-            }
-
-            // 右结点
-            if(childIndex === 1) {
-                node.x = parent.x + this.layoutOption.xInterval / 2 + width / 2;
-            }
-        }
-
-        // 若该结点存在左右孩子结点，则递归布局
-        if(node.children) {
-            this.layout(node.children[0], node, 0);
-            this.layout(node.children[1], node, 1);
-        }
+        group.add(graphNodes[i]);
     }
 
-    render(elements: Element[], containerWidth: number, containerHeight: number) {
-        // ...省略代码
-    }
-}
-```
-这在里，我们的`xInterval`和`yInterval`派上用场了。StructV允许用户在`render`函数中通过`this.layoutOption`访问布局配置项layout中的任何值。我们用`xInterval`来设定左右孩子结点间的水平距离，用`yInterval`来设定孩子结点与父节点的垂直距离。
-大功告成了吗？其实还没有，还有什么问题？我们可以在脑海中仔细想象一下用上面方法布局出来的二叉树是什么样子的：
-![](https://github.com/phenomLi/StructV/raw/master/images/微信截图_20200327154940.png)
-这是有3个结点的情况。如果情况再复杂一点，会是什么样子呢：
-![](https://github.com/phenomLi/StructV/raw/master/images/微信截图_20200327155441.png)
-没错，当左右子树边宽时，水平方向的结点很有可能会发生重叠。该怎么解决呢？有一种思路是利用包围盒。
-> 包围盒（boundingRect）是计算机图形学的一个常见概念，指的是一个复杂图形的最小外接矩形，通常用于简化范围查找或相交问题。
+    return group;
+}   
 
-我们为二叉树的每一个子树建立一个包围盒，图示如下：
-![](https://github.com/phenomLi/StructV/raw/master/images/微信截图_20200327163736.png)
-在包围盒的帮助下，我们很容易看出子树2的包围盒（橙色）和子树3的包围盒（紫色）相交。图中包围盒为了便于观看留了一些间隙，现实中包围盒是紧凑的。
-我们要做的就是**计算包围盒2和包围盒3交集部分的水平宽度，记作`moveDistance`，然后把包围盒2和包围盒3中的所有结点分别移动`-moveDistance / 2`和`moveDistance / 2`距离**。
+/**
+ * 布局哈希表
+ * @param hashItems 
+ */
+layoutHashTable(hashItems: Element[]): Group {
+    let group = this.group();
 
-<br />
-
-听起来好像有点麻烦，又要定义包围盒又要计算交集什么的（我只是想可视化一个二叉树有这么难吗，哭）。不急，你能想的Struct都已经帮你想到了。StructV允许用户在`render`函数中创建Group元素。什么是Group，有什么用？Group可以看作是一个承载Element的容器：
-```typescript
-// 创建一个Group，同时添加element1到这个Group
-let group = this.group(element1);
-// 添加多个Element到Group
-group.add(element2, element3, ...., elementN);
-```
-当然Group中允许嵌套Group，我们可以操作通过Group来批量操作Group中的所有Element和Group：
-- **`group.getWidth(): number，groupHeight(): number`：获取group的宽高**
-- **`group.translate(dx: number, dy: number)`：位移 Group dx/dy的距离**
-- **`group.rotate(rotation: number, center?: [number, number])`：旋转 Group rotation角度，第二个参数是旋转中心，若省略则默认以Group中心旋转**
-- **`group.getBound(): BoundingRect`；获取Group的包围盒**
-
-我们现在可以为每一个子树创建一个Group，然后把该子树的每一个结点加入这个Group，例如Group的特性，我们可以很容易判断哪些子树发生了重叠（相交）。至于如何计算包围盒交集，StructV也为我们内置了一系列包围盒的相关操作，只要引入`Bound`对象即可：
-```typescript
-import { Bound } from "./StructV/View/boundingRect";
-```
-- `Bound.fromPoints(points: Array<[number, number]>): BoundingRect`：从点集构造包围盒
-- `Bound.toPoints(bound: BoundingRect): Array<[number, number]>`：包围盒转换为点集
-- `Bound.union(...arg: BoundingRect[]): BoundingRect`：包围盒求并集
-- `Bound.intersect(b1: BoundingRect, b2: BoundingRect): BoundingRect`：包围盒求交集
-- `Bound.rotation(bound: BoundingRect, rot: number): BoundingRect`：包围盒旋转
-- `Bound.isOverlap(b1: BoundingRect, b2: BoundingRect): boolean`：判断包围盒是否相交
-
-<br />
-
-现在我们可以回到我们的代码了，我们修改一下我们的`layout`函数：
-```typescript
-// ------------------------- binaryTree.ts ------------------------- 
-
-// ...省略代码
-
-layout(node: Element, parent: Element, childIndex?: 0 | 1): Group {
-    if(!node) {
-        return null;
-    }
-
-    // 创建一个Group，并且把该结点加入到这个Group
-    let group = this.group(node),
-        width = node.width,
-        height = node.height;
-
-    // 若该结点存在父节点，则对自身进行布局
-    if(parent) {
-        node.y = parent.y + this.layoutOption.yInterval + height;
-
-        // 左节点
-        if(childIndex === 0) {
-            node.x = parent.x - this.layoutOption.xInterval / 2 - width / 2;
-        }
-
-        // 右结点
-        if(childIndex === 1) {
-            node.x = parent.x + this.layoutOption.xInterval / 2 + width / 2;
-        }
-    }
-
-    // 若该结点存在左右孩子结点，则递归布局
-    if(node.children && (node.children[0] || node.children[1])) {
-        let leftChild = node.children[0],
-            rightChild = node.children[1],
-            // 布局左子树，且返回左子树的Group
-            leftGroup = this.layout(leftChild, node, 0),
-            // 布局右子树，且返回右子树的Group
-            rightGroup = this.layout(rightChild, node, 1);
+    for(let i = 0; i < hashItems.length; i++) {
+        let height = hashItems[i].height;
         
-        // 处理左右子树相交问题
-        if(leftGroup && rightGroup) {
-            // 计算包围盒的交集
-            let intersection = Bound.intersect(leftGroup.getBound(), rightGroup.getBound());
-
-            // 若左右子树相交，则处理相交
-            if(intersection && intersection.width > 0) {
-                // 计算移动距离
-                let moveDistance = (intersection.width + this.layoutOption.xInterval) / 2;
-                // 位移左子树Group
-                leftGroup.translate(-moveDistance, 0);
-                // 位移右子树Group
-                rightGroup.translate(moveDistance, 0);
-            }
+        if(i > 0) {
+            hashItems[i].y = hashItems[i - 1].y + height;
         }
 
-        // 若存在左子树，将左子树的Group加入到当前Group
-        if(leftGroup) {
-            group.add(leftGroup);
-        }
-
-        // 若存在右子树，将右子树的Group加入到当前Group
-        if(rightGroup) {
-            group.add(rightGroup)
-        }
+        group.add(hashItems[i]);
     }
 
-    // 返回当前Group
     return group;
 }
 
-// ...省略代码
 
-```
+render(elements: ElementContainer) {
+    let hashGroup = this.layoutHashTable(elements.hashItem),
+        graphGroup = this.layoutGraph(elements.graphNode);
 
-这样看起来比较保险了。`binaryTree.ts`文件完整代码如下：
-```typescript
-// ------------------------- binaryTree.ts ------------------------- 
+    let hashBound: BoundingRect = hashGroup.getBound(),
+        graphBound: BoundingRect = graphGroup.getBound(),
+        hashMidHeight = hashBound.y + hashBound.height / 2,
+        graphMidHeight = graphBound.y + graphBound.height / 2;
 
-import { Engine } from "./StructV/engine";
-import { BTOptions, BinaryTreeOptions } from "./options";
-import { Element } from "./StructV/Model/element";
-import { Group } from "./StructV/Model/group";
-import { Bound } from "./StructV/View/boundingRect";
-import { BinaryTreeSources } from "./sources";
-
-/**
- * 二叉树可视化实例
- */
-export class BinaryTree extends Engine<BinaryTreeSources, BinaryTreeOptions> {
-
-    constructor(container: HTMLElement) {
-        super(container, {
-            name: 'BinaryTree',
-            defaultOption: BTOptions
-        });
-    } 
-
-    /**
-     * 对二叉树进行递归布局
-     * @param node 当前结点
-     * @param parent 父节点
-     * @param childIndex 左右孩子结点序号（0/1）
-     */
-    layout(node: Element, parent: Element, childIndex?: 0 | 1): Group {
-        if(!node) {
-            return null;
-        }
-
-        // 创建一个Group，并且把该结点加入到这个Group
-        let group = this.group(node),
-            width = node.width,
-            height = node.height;
-
-        // 若该结点存在父节点，则对自身进行布局
-        if(parent) {
-            node.y = parent.y + this.layoutOption.yInterval + height;
-
-            // 左节点
-            if(childIndex === 0) {
-                node.x = parent.x - this.layoutOption.xInterval / 2 - width / 2;
-            }
-
-            // 右结点
-            if(childIndex === 1) {
-                node.x = parent.x + this.layoutOption.xInterval / 2 + width / 2;
-            }
-        }
-
-        // 若该结点存在左右孩子结点，则递归布局
-        if(node.children && (node.children[0] || node.children[1])) {
-            let leftChild = node.children[0],
-                rightChild = node.children[1],
-                // 布局左子树，且返回左子树的Group
-                leftGroup = this.layout(leftChild, node, 0),
-                // 布局右子树，且返回右子树的Group
-                rightGroup = this.layout(rightChild, node, 1);
-            
-            // 处理左右子树相交问题
-            if(leftGroup && rightGroup) {
-                // 计算包围盒的交集
-                let intersection = Bound.intersect(leftGroup.getBound(), rightGroup.getBound());
-
-                // 若左右子树相交，则处理相交
-                if(intersection && intersection.width > 0) {
-                    // 计算移动距离
-                    let moveDistance = (intersection.width + this.layoutOption.xInterval) / 2;
-                    // 位移左子树Group
-                    leftGroup.translate(-moveDistance, 0);
-                    // 位移右子树Group
-                    rightGroup.translate(moveDistance, 0);
-                }
-            }
-
-            // 若存在左子树，将左子树的Group加入到当前Group
-            if(leftGroup) {
-                group.add(leftGroup);
-            }
-
-            // 若存在右子树，将右子树的Group加入到当前Group
-            if(rightGroup) {
-                group.add(rightGroup)
-            }
-        }
-
-        // 返回当前Group
-        return group;
-    }
-
-    render(elements: Element[], containerWidth: number, containerHeight: number) {
-        let nodes = elements,
-            node: Element,
-            root: Element,
-            i;
-
-        // 首先找出根节点
-        for(i = 0; i < nodes.length; i++) {
-            node = nodes[i];
-            
-            if(nodes[i].root) {
-                root = nodes[i];
-                break;
-            }
-        }
-        
-        this.layout(root, null);
-    }
+    graphGroup.translate(0, hashMidHeight - graphMidHeight);
 }
 ```
+这次的布局算法比较简单，我们就不像上次一样详细讲解了，毕竟“如何布局”跟我们本文核心有点偏离，因此我们的只挑一些有意思的来细说：
+- `Vector` 是 StructV 内置的一个向量操作工具对象，`Vector.rotation` 功能是计算一个点围绕某个点旋转某个角度后的值。`Vector` 还提供了其他非常有用的方法，比如向量加减，点积叉积求模等
+- 和上次一样，这次我们也使用了 Group ，这次使用 Group 的目的是使无向图整体与哈希表保持垂直居中对齐
 
-<br />
+到了这一步，我们的哈希图可视化实例就基本完成了，之后就是在 html 中检验我们的成果。
 
-##### Javascript:
-代码基本一致，但有几个地方还是要说明一下。像`Engine`，`Bound`等一些模块变量在js版本中被挂载在StructV暴露的全局变量`SV`上，如`SV.Engine`，其余的只需把ts版本的类型删去即可。`binaryTree.js`文件完整代码：
-```javascript
-// ------------------------- binaryTree.js ------------------------- 
-
-let BTOptions = {
-    element: 'dualNode',
-    layout: {
-        element: {
-            size: [80, 40],
-            content: '[id]',
-            style: {
-                stroke: '#000',
-                fill: '#9EB2A1'
-            }
-        },
-        link: {
-            children: {
-                markers: ['circle', 'arrow'],
-                contact: [[3, 0], [1, 0]],
-                style: {
-                    fill: '#000',
-                    lineWidth: 2
-                }
-            }
-        },
-        xInterval: 60,
-        yInterval: 80,
-        autoAdjust: true
-    },
-    animation: {
-        enableSkip: true,
-        duration: 1000,
-        timingFunction: 'quinticOut',
-        enableAnimation: true
-    }
-}
-
-
-
-/**
- * 二叉树可视化实例
- */
-class BinaryTree extends SV.Engine {
-
-    constructor(container) {
-        super(container, {
-            name: 'BinaryTree',
-            defaultOption: BTOptions
-        });
-    } 
-
-    /**
-     * 对二叉树进行递归布局
-     * @param node 当前结点
-     * @param parent 父节点
-     * @param childIndex 左右孩子结点序号（0/1）
-     */
-    layout(node, parent, childIndex) {
-        if(!node) {
-            return null;
-        }
-
-        // 创建一个Group，并且把该结点加入到这个Group
-        let group = this.group(node),
-            width = node.width,
-            height = node.height;
-
-        // 若该结点存在父节点，则对自身进行布局
-        if(parent) {
-            node.y = parent.y + this.layoutOption.yInterval + height;
-
-            // 左节点
-            if(childIndex === 0) {
-                node.x = parent.x - this.layoutOption.xInterval / 2 - width / 2;
-            }
-
-            // 右结点
-            if(childIndex === 1) {
-                node.x = parent.x + this.layoutOption.xInterval / 2 + width / 2;
-            }
-        }
-
-        // 若该结点存在左右孩子结点，则递归布局
-        if(node.children && (node.children[0] || node.children[1])) {
-            let leftChild = node.children[0],
-                rightChild = node.children[1],
-                // 布局左子树，且返回左子树的Group
-                leftGroup = this.layout(leftChild, node, 0),
-                // 布局右子树，且返回右子树的Group
-                rightGroup = this.layout(rightChild, node, 1);
-            
-            // 处理左右子树相交问题
-            if(leftGroup && rightGroup) {
-                // 计算包围盒的交集
-                let intersection = SV.Bound.intersect(leftGroup.getBound(), rightGroup.getBound());
-
-                // 若左右子树相交，则处理相交
-                if(intersection && intersection.width > 0) {
-                    // 计算移动距离
-                    let moveDistance = (intersection.width + this.layoutOption.xInterval) / 2;
-                    // 位移左子树Group
-                    leftGroup.translate(-moveDistance, 0);
-                    // 位移右子树Group
-                    rightGroup.translate(moveDistance, 0);
-                }
-            }
-
-            // 若存在左子树，将左子树的Group加入到当前Group
-            if(leftGroup) {
-                group.add(leftGroup);
-            }
-
-            // 若存在右子树，将右子树的Group加入到当前Group
-            if(rightGroup) {
-                group.add(rightGroup)
-            }
-        }
-
-        // 返回当前Group
-        return group;
-    }
-
-    render(elements, containerWidth, containerHeight) {
-        let nodes = elements,
-            node,
-            root,
-            i;
-
-        // 首先找出根节点
-        for(i = 0; i < nodes.length; i++) {
-            node = nodes[i];
-            
-            if(nodes[i].root) {
-                root = nodes[i];
-                break;
-            }
-        }
-        
-        this.layout(root, null);
-    }
-}
-```
+`hashGraph.ts`的[完整代码](https://github.com/phenomLi/StructV/blob/master/examples/hashGraph/hashGraphTs/hashGraph.ts)
 
 <br />
 
 ## Step 4
-什么？？！！还有Step4？
 
-别慌，主要工作已经完成了，剩下的就是要把我们的成果呈现到浏览器上。
-把刚刚编写好的`sources.ts`，`options.ts`，`binaryTree.ts`编译打包为`binaryTree.js`（js版本可以跳过这一步）。
-
-新建一个`binaryTree.html`，写好必要的内容，然后引入StructV核心文件`sv.js`和我们的`binaryTree.js`：
+打包编译我们的 ts 文件后，新建 `hashGraph.html` ，写下基础的 html代码，引入必须的文件，之后，初始化我们的可视化实例：
 ```html
+// ------------------------- hashGraph.html ------------------------- 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -949,139 +549,158 @@ class BinaryTree extends SV.Engine {
 <body>
 
 <div id="container"></div>
+<button id="btn">输入新数据</button>
 
 <script src="./../dist/sv.js"></script>
-<script src="./binaryTree.js"></script>
+<script src="./hashGraph.js"></script>
+<script>
+
+let hashGraph = SV.create(document.getElementById('container'), HashGraph);
+
+</script>
 
 </body>
 </html>
 ```
-
-然后，初始化我们的二叉树实例：
+按照 `HashGraphSources` 的格式，定制我们的 mock 数据。要记住，现在我们有两种 SourcesElement 了，因此 Sources 必须为一个对象：
 ```html
 <script>
-    let binaryTree = SV.create(document.getElementById('container'), BinaryTree);
+hashGraph.source({
+    hashItem: [
+        { id: 1, hashLink: { element: 'graphNode', target: 1 } }, 
+        { id: 2, hashLink: { element: 'graphNode', target: 2 } }, 
+        { id: 3, hashLink: { element: 'graphNode', target: 3 } }, 
+        { id: 4, hashLink: { element: 'graphNode', target: 4 } },
+        { id: 5, hashLink: { element: 'graphNode', target: 5 } }, 
+        { id: 6, hashLink: { element: 'graphNode', target: 6 } }
+    ],
+    graphNode: [
+        { id: 1, data: 'a', graphLink: 2 }, 
+        { id: 2, data: 'b', graphLink: [3, 4, 5] }, 
+        { id: 3, data: 'c', graphLink: 4 }, 
+        { id: 4, data: 'd', graphLink: 5 },
+        { id: 5, data: 'e', graphLink: 6 }, 
+        { id: 6, data: 'f', graphLink: [1, 3] }
+    ]
+});
 </script>
 ```
-使用`SV`上的`create`函数来初始化我们的可视化实例，第一个参数是HTML容器，第二个参数是我们刚刚写好的二叉树可视化实例的类。
+刷新浏览器。。。。如无意外的话：
+![](https://github.com/phenomLi/StructV/raw/master/images/hash.gif)
+
+之后模拟一下数据更新：
+```html
+// ------------------------- hashGraph.html ------------------------- 
+
+<script>
+document.getElementById('btn').addEventListener('click', () => {
+    hashGraph.source({
+        hashItem: [
+            { id: 1, hashLink: { element: 'graphNode', target: 1 } }, 
+            { id: 2, hashLink: { element: 'graphNode', target: 2 } }, 
+            { id: 3, hashLink: { element: 'graphNode', target: 3 } }, 
+            { id: 4, hashLink: { element: 'graphNode', target: 4 } },
+            { id: 5, hashLink: { element: 'graphNode', target: 5 } }
+        ],
+        graphNode: [
+            { id: 1, data: 'a', graphLink: 2 }, 
+            { id: 2, data: 'b', graphLink: [3, 4, 5] }, 
+            { id: 3, data: 'c', graphLink: 4 }, 
+            { id: 4, data: 'd', graphLink: 5 },
+            { id: 5, data: 'e', graphLink: 1 }
+        ]
+    });
+});
+</script>
+```
+![](https://github.com/phenomLi/StructV/raw/master/images/hashFirst.gif)
 
 <br />
 
-刷新浏览器，噔噔！什么都没有。当然啦，我们还没有输入源数据呢。还记得我们的`BinaryTreeSources`的格式吗，我们随便造几个结点，调用可视化实例上`source`函数输入源数据：
-```html
-<script>
-let binaryTree = SV.create(document.getElementById('container'), BinaryTree);
-
-binaryTree.source([
-    { id: 1, children: [2, 3], root: true}, 
-    { id: 2, children: [4, 5]}, 
-    { id: 3, children: [12, 13] }, 
-    { id: 4, children: [6, 9] },
-    { id: 5 }, { id: 6 },
-    { id: 9, children: [10, 11]},
-    { id: 10 },
-    { id: 11 },
-    { id: 12 },
-    { id: 13 }
-]);
-</script>
-```
-
-再次刷新浏览器。。。。如无意外的话：
-![](https://github.com/phenomLi/StructV/raw/master/images/GIF.gif)
-
-HERE SHE IS!!
+`hashGraph.html`的[完整代码](https://github.com/phenomLi/StructV/blob/master/examples/hashGraph/hashGraphTs/hashGraph.html)
 
 <br />
 
-## 就这样吗？
-现在我们把二叉树完整地可视化出来了，然后。。。就这样没了吗？当然不是。
+## 我们来加点需求
+有时候，我们使用可视化，为的只是关注某个或某项数据的情况或变化，并且希望可以用某种方法标注出该项数据，以便更好地进行对比或者观察。比如说，在数据可视化中，某项数据的离群值或者波动比较大，我们可以用一种对比色标注该数据。那么，在 StructV 中，实现这种需求，是可能的吗？
 
-现在我们尝试一下，添加一个按钮，点击按钮，输入一个新的数据：
-```html
-<button id="btn">输入新数据</button>
+我们先给自己加一个需求。如下图，右边无向图的结点 b 在某种情况下，会失去左边对应哈希表元素 2 对其的指向：
+![](https://github.com/phenomLi/StructV/raw/master/images/hahsSecond.gif)
 
-<script>
-let binaryTree = SV.create(document.getElementById('container'), BinaryTree);
+其对应源数据输入如下：
+```javascript
+// ------------------------- hashGraph.html ------------------------- 
 
-binaryTree.source([
-    { id: 1, children: [2, 3], root: true}, 
-    { id: 2, children: [4, 5]}, 
-    { id: 3, children: [10, 11] }, 
-    { id: 4, children: [6, 7] },
-    { id: 5 }, 
-    { id: 6 },
-    { id: 7, children: [8, 9]},
-    { id: 8 },
-    { id: 9 },
-    { id: 10 },
-    { id: 11 }
-]);
-
-// 点击按钮输入新数据
-document.getElementById('btn').addEventListener('click', () => {
-    binaryTree.source([
-        { id: 1, children: [2, 3], root: true}, 
-        { id: 2, children: [4, 5]}, 
-        { id: 3, children: [10, 11] }, 
-        { id: 4 },
-        { id: 5 }, 
-        { id: 7, children: [8, 9]},
-        { id: 8 },
-        { id: 9 },
-        { id: 10, children: [7, null] },
-        { id: 11 }
-    ]);
+hashGraph.source({
+    hashItem: [
+        { id: 1, hashLink: { element: 'graphNode', target: 1 } }, 
+        { id: 2 }, 
+        { id: 3, hashLink: { element: 'graphNode', target: 3 } }, 
+        { id: 4, hashLink: { element: 'graphNode', target: 4 } },
+        { id: 5, hashLink: { element: 'graphNode', target: 5 } }
+    ],
+    graphNode: [
+        { id: 1, data: 'a', graphLink: 2 }, 
+        { id: 2, data: 'b', graphLink: [3, 4, 5] }, 
+        { id: 3, data: 'c', graphLink: 4 }, 
+        { id: 4, data: 'd', graphLink: 5 },
+        { id: 5, data: 'e', graphLink: 1 }
+    ]
 });
-
-</script>
 ```
-我们把结点6删去，并且把子树7变为为结点10的左孩子结点。刷新浏览器，点击按钮：
-![](https://github.com/phenomLi/StructV/raw/master/images/update.gif)
 
-发生了什么？StructV最大的一个核心功能是可以识别前后两次输入数据的差异，并且动态更新可视化视图。git录制观感较差，实际中动画效果会更平缓优雅。
+现在我们希望**能将使其指向的无向图结点进行标注————变成红色**。
 
-还有更牛逼更新方式吗？有！现在我们不在点击按钮后重新输入新的数据，我们换一种方式：
-```html
-<script>
+StructV 可以很方便地实现这种需求，具体方法是**扩展 Element** 。我们之前已经介绍过 Element 的概念：
+> StructV 会对输入的每一个 SourcesElement 进行重新包装和扩展，这个包装扩展后的 SourcesElement 就称为 Element 。Element 相比 SourcesElement 添加了许多用于布局的属性，同时也保留着 SourcesElement 中原有的属性。
 
-// ...省略代码
+Element 相当于 SourcesElement 包了一层壳，它们的关系如下图所示：
+![](https://github.com/phenomLi/StructV/raw/master/images/微信截图_20200331232311.png)
 
-let data = binaryTree.source([
-    { id: 1, children: [2, 3], root: true}, 
-    { id: 2, children: [4, 5]}, 
-    { id: 3, children: [10, 11] }, 
-    { id: 4, children: [6, 7] },
-    { id: 5 }, 
-    { id: 6 },
-    { id: 7, children: [8, 9]},
-    { id: 8 },
-    { id: 9 },
-    { id: 10 },
-    { id: 11 }
-], true); 
+Element 是 StructV 的核心概念，可以说 StructV 的可视化本质就是在操作 Element。每一个 SourcesElement 在输入后都会被包装为一个**匿名 Element**，这意味着，我们可以对某一类 Element 进行进一步扩展。
 
-document.getElementById('btn').addEventListener('click', () => {
-    data[3].children = [null, null];
-    data[5] = null;
-    data[9].children = [7, null];
-});
+现在我们要做的是给无向图结点加一点功能，无向图结点的 SourcesElement 叫 graphNode，因此我们就新建一个 `graphNode.ts` 文件，写下一下模板代码：
+```typescript
+// ------------------------- graphNode.ts ------------------------- 
 
-</script>
+import { Element } from "./StructV/Model/element";
+
+export class GraphNode extends Element { }
 ```
-这次，我们的`source`函数返回了一个`data`变量，然后我们在点击事件中修改`data`的值。再次刷新浏览器，看看效果是不是跟刚刚一样。
+和自定义图形一样，我们对 Element 进行扩展也是通过继承来实现，而且是继承 Element 基类。StructV 在 Element 基类上提供了许多事件钩子，如：
+- **onLinkTo 当该 Element 通过指针连线连接其余某个图形时触发**
+- **onLinkFrom 当该 Element 被其余某个 Element 通过指针连线连接时触发**
+- **onUnlinkTo 当该 Element 断开与其余某个 Element 的指针连线连接时触发**
+- **onUnlinkFrom 当该 Element 被其余某个 Element 断开指针连线连接时触发**
+- **onRefer 当该 Element 被某个外部指针指向时触发**
+- **onUnrefer 当该 Element 被某个外部指针取消指向时触发**
+- **onChange 当该 Element 发生变化时触发**
 
-`source`函数还可以接受第二个参数，该参数为一个布尔值。若为`true`，则开启源数据代理，返回一个新的被代理后的源数据。只要修改该源数据，StructV便会更新可视化视图。
+按照需求，我们现在要捕捉无向图结点失去指向时的动作，显然应该使用 `onUnlinkFrom` 钩子函数，该函数接受一个 `linkName: string` 参数，该参数表示指针连线的类型。因此，我们解决我们的问题了：
+```typescript
+// ------------------------- graphNode.ts ------------------------- 
+
+import { Element } from "./StructV/Model/element";
+
+export class GraphNode extends Element { 
+    onUnlinkFrom(linkName) {
+        if(linkName === 'hashLink') {
+            this.style.fill = '#f38181';
+        }
+    }
+}
+```
+这样就 objk 了吗，看看效果就知道了：
+![](https://github.com/phenomLi/StructV/raw/master/images/hashUpdate.gif)
+
+`graphNode.ts` 的[完整代码](https://github.com/phenomLi/StructV/blob/master/examples/hashGraph/hashGraphTs/graphNode.ts)
+
+对了，还有 js 版本的代码，我们把所有的 js 都写在了一个文件里面：`hashGraph.js` 的[完整代码](https://github.com/phenomLi/StructV/blob/master/examples/hashGraph/hashGraph.js)
 
 <br />
 
 ## 总结
-目前位置，我们已经了解到如何用StructV创建属于自己的数据可视化实例，很简单，只需要3步：
-1. **确定源数据格式：定义Sources**
-2. **编写默认配置项：定义Options**
-3. **为可视化实例编写渲染函数：定义V**
-
-我们可以从这3步中，创建各种各样的可视化例子，链表，数组，广义表，哈希表，图...只要你能想到的，StructV都可以做到，同时还能可视化数据前后的变化过程。
+这是 StructV 教程系列的第二篇文章，也是最后一篇（因为太懒了），我的目标是希望通过这“仅仅”两篇教程，能教会大家如何使用 StructV 来实现自己的可视化（如果有人会看的话😂）。这两篇文章基本覆盖了 StructV 的大部分功能和知识，但是依然做不到面面俱到，有一些小 feature 我还是没有提到。
 
 <br />
 

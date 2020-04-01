@@ -60,20 +60,7 @@ interface BinaryTreeSourcesElement extends SourceElement {
 export type BinaryTreeSources = Array<BinaryTreeSourcesElement>;
 ```
 
-`sources.ts`的完整代码：
-```typescript
-// ------------------------- sources.ts ------------------------- 
-
-import { SourceElement } from './StructV/sources';
-
-interface BinaryTreeSourcesElement extends SourceElement {
-    id: string | number;
-    root?: boolean;
-    children?: [string, string] | [number, number];
-}
-
-export type BinaryTreeSources = Array<BinaryTreeSourcesElement>;
-```
+`sources.ts`的[完整代码](https://github.com/phenomLi/StructV/blob/master/examples/binaryTree/binaryTreeTs/sources.ts)
 
 使用类型系统确定Sources的格式，只是出于养成良好的编码习惯，对输入数据进行类型约束，以获得编译器的代码检查和提高代码可读性，既然ts提供了这个功能，我们应当好好利用。你完全可以跳过这一步直接进行**Step 2**，然而在这之前，我们希望你在心中清楚你输入的数据是什么样的。
 
@@ -209,91 +196,7 @@ export const BTOptions: BinaryTreeOptions = {
 `dualNode`还好地还原了二叉树结点的结构特点--左右两个孩子结点域和中间一个data域（我们用id代替data）。如果StructV中没有想要的图形，我们还可以自己组合创建新的图形。
 `content`属性中的`[id]`表示取SourcesElement中`id`属性的值。`content`属性支持占位符，用`[attrName]`表示，其中`attrName`表示SourcesElement中的属性值。
 
-`options.ts`文件的完整代码：
-```typescript
-// ------------------------- options.ts ------------------------- 
-
-import { EngineOption } from './StructV/option';
-import { Style } from './StructV/Shapes/shape';
-
-export interface BinaryTreeOptions extends EngineOption {
-    // 元素配置项
-    element: string;
-    // 布局配置项
-    layout: {
-        // 结点布局外观
-        element: {
-            // 结点尺寸
-            size: [number, number] | number;
-            // 结点文本
-            content: string;
-            // 结点样式
-            style: Partial<Style>;
-        };
-        // 指针连线声明
-        link: {
-            children: {
-                // 连线两端图案
-                markers: [string, string] | string;
-                // 连接锚点
-                contact: [[number, number], [number, number]] | [number, number];
-                // 连线样式
-                style: Partial<Style>;
-            }
-        };
-        // 结点水平间隔
-        xInterval: number;
-        // 结点垂直间隔
-        yInterval: number;
-        // 视图垂直居中
-        autoAdjust: boolean;
-    };
-    // 动画配置项
-    animation: {
-        // 是否允许跳过动画
-        enableSkip: boolean;
-        // 是否开启动画
-        enableAnimation: boolean;
-        // 缓动函数
-        timingFunction: string;
-        // 动画时长
-        duration: number;
-    };
-}
-
-export const BTOptions: BinaryTreeOptions = {
-    element: 'dualNode',
-    layout: {
-        element: {
-            size: [80, 40],
-            content: '[id]',
-            style: {
-                stroke: '#000',
-                fill: '#9EB2A1'
-            }
-        },
-        link: {
-            children: {
-                markers: ['circle', 'arrow'],
-                contact: [[3, 0], [1, 0]],
-                style: {
-                    fill: '#000',
-                    lineWidth: 2
-                }
-            }
-        },
-        xInterval: 60,
-        yInterval: 40,
-        autoAdjust: true
-    },
-    animation: {
-        enableSkip: true,
-        duration: 1000,
-        timingFunction: 'quinticOut',
-        enableAnimation: true
-    }
-}
-```
+`options.ts`文件的[完整代码](https://github.com/phenomLi/StructV/blob/master/examples/binaryTree/binaryTreeTs/options.ts)
 
 <br />
 
@@ -593,266 +496,12 @@ layout(node: Element, parent: Element, childIndex?: 0 | 1): Group {
 
 ```
 
-这样看起来比较保险了。`binaryTree.ts`文件完整代码如下：
-```typescript
-// ------------------------- binaryTree.ts ------------------------- 
-
-import { Engine } from "./StructV/engine";
-import { BTOptions, BinaryTreeOptions } from "./options";
-import { Element } from "./StructV/Model/element";
-import { Group } from "./StructV/Model/group";
-import { Bound } from "./StructV/View/boundingRect";
-import { BinaryTreeSources } from "./sources";
-
-/**
- * 二叉树可视化实例
- */
-export class BinaryTree extends Engine<BinaryTreeSources, BinaryTreeOptions> {
-
-    constructor(container: HTMLElement) {
-        super(container, {
-            name: 'BinaryTree',
-            defaultOption: BTOptions
-        });
-    } 
-
-    /**
-     * 对二叉树进行递归布局
-     * @param node 当前结点
-     * @param parent 父节点
-     * @param childIndex 左右孩子结点序号（0/1）
-     */
-    layout(node: Element, parent: Element, childIndex?: 0 | 1): Group {
-        if(!node) {
-            return null;
-        }
-
-        // 创建一个Group，并且把该结点加入到这个Group
-        let group = this.group(node),
-            width = node.width,
-            height = node.height;
-
-        // 若该结点存在父节点，则对自身进行布局
-        if(parent) {
-            node.y = parent.y + this.layoutOption.yInterval + height;
-
-            // 左节点
-            if(childIndex === 0) {
-                node.x = parent.x - this.layoutOption.xInterval / 2 - width / 2;
-            }
-
-            // 右结点
-            if(childIndex === 1) {
-                node.x = parent.x + this.layoutOption.xInterval / 2 + width / 2;
-            }
-        }
-
-        // 若该结点存在左右孩子结点，则递归布局
-        if(node.children && (node.children[0] || node.children[1])) {
-            let leftChild = node.children[0],
-                rightChild = node.children[1],
-                // 布局左子树，且返回左子树的Group
-                leftGroup = this.layout(leftChild, node, 0),
-                // 布局右子树，且返回右子树的Group
-                rightGroup = this.layout(rightChild, node, 1);
-            
-            // 处理左右子树相交问题
-            if(leftGroup && rightGroup) {
-                // 计算包围盒的交集
-                let intersection = Bound.intersect(leftGroup.getBound(), rightGroup.getBound());
-
-                // 若左右子树相交，则处理相交
-                if(intersection && intersection.width > 0) {
-                    // 计算移动距离
-                    let moveDistance = (intersection.width + this.layoutOption.xInterval) / 2;
-                    // 位移左子树Group
-                    leftGroup.translate(-moveDistance, 0);
-                    // 位移右子树Group
-                    rightGroup.translate(moveDistance, 0);
-                }
-            }
-
-            // 若存在左子树，将左子树的Group加入到当前Group
-            if(leftGroup) {
-                group.add(leftGroup);
-            }
-
-            // 若存在右子树，将右子树的Group加入到当前Group
-            if(rightGroup) {
-                group.add(rightGroup)
-            }
-        }
-
-        // 返回当前Group
-        return group;
-    }
-
-    render(elements: Element[], containerWidth: number, containerHeight: number) {
-        let nodes = elements,
-            node: Element,
-            root: Element,
-            i;
-
-        // 首先找出根节点
-        for(i = 0; i < nodes.length; i++) {
-            node = nodes[i];
-            
-            if(nodes[i].root) {
-                root = nodes[i];
-                break;
-            }
-        }
-        
-        this.layout(root, null);
-    }
-}
-```
+这样看起来比较保险了。`binaryTree.ts`文件的[完整代码](https://github.com/phenomLi/StructV/blob/master/examples/binaryTree/binaryTreeTs/binaryTree.ts)
 
 <br />
 
 ##### Javascript:
-代码基本一致，但有几个地方还是要说明一下。像`Engine`，`Bound`等一些模块变量在js版本中被挂载在StructV暴露的全局变量`SV`上，如`SV.Engine`，其余的只需把ts版本的类型删去即可。`binaryTree.js`文件完整代码：
-```javascript
-// ------------------------- binaryTree.js ------------------------- 
-
-let BTOptions = {
-    element: 'dualNode',
-    layout: {
-        element: {
-            size: [80, 40],
-            content: '[id]',
-            style: {
-                stroke: '#000',
-                fill: '#9EB2A1'
-            }
-        },
-        link: {
-            children: {
-                markers: ['circle', 'arrow'],
-                contact: [[3, 0], [1, 0]],
-                style: {
-                    fill: '#000',
-                    lineWidth: 2
-                }
-            }
-        },
-        xInterval: 60,
-        yInterval: 80,
-        autoAdjust: true
-    },
-    animation: {
-        enableSkip: true,
-        duration: 1000,
-        timingFunction: 'quinticOut',
-        enableAnimation: true
-    }
-}
-
-
-
-/**
- * 二叉树可视化实例
- */
-class BinaryTree extends SV.Engine {
-
-    constructor(container) {
-        super(container, {
-            name: 'BinaryTree',
-            defaultOption: BTOptions
-        });
-    } 
-
-    /**
-     * 对二叉树进行递归布局
-     * @param node 当前结点
-     * @param parent 父节点
-     * @param childIndex 左右孩子结点序号（0/1）
-     */
-    layout(node, parent, childIndex) {
-        if(!node) {
-            return null;
-        }
-
-        // 创建一个Group，并且把该结点加入到这个Group
-        let group = this.group(node),
-            width = node.width,
-            height = node.height;
-
-        // 若该结点存在父节点，则对自身进行布局
-        if(parent) {
-            node.y = parent.y + this.layoutOption.yInterval + height;
-
-            // 左节点
-            if(childIndex === 0) {
-                node.x = parent.x - this.layoutOption.xInterval / 2 - width / 2;
-            }
-
-            // 右结点
-            if(childIndex === 1) {
-                node.x = parent.x + this.layoutOption.xInterval / 2 + width / 2;
-            }
-        }
-
-        // 若该结点存在左右孩子结点，则递归布局
-        if(node.children && (node.children[0] || node.children[1])) {
-            let leftChild = node.children[0],
-                rightChild = node.children[1],
-                // 布局左子树，且返回左子树的Group
-                leftGroup = this.layout(leftChild, node, 0),
-                // 布局右子树，且返回右子树的Group
-                rightGroup = this.layout(rightChild, node, 1);
-            
-            // 处理左右子树相交问题
-            if(leftGroup && rightGroup) {
-                // 计算包围盒的交集
-                let intersection = SV.Bound.intersect(leftGroup.getBound(), rightGroup.getBound());
-
-                // 若左右子树相交，则处理相交
-                if(intersection && intersection.width > 0) {
-                    // 计算移动距离
-                    let moveDistance = (intersection.width + this.layoutOption.xInterval) / 2;
-                    // 位移左子树Group
-                    leftGroup.translate(-moveDistance, 0);
-                    // 位移右子树Group
-                    rightGroup.translate(moveDistance, 0);
-                }
-            }
-
-            // 若存在左子树，将左子树的Group加入到当前Group
-            if(leftGroup) {
-                group.add(leftGroup);
-            }
-
-            // 若存在右子树，将右子树的Group加入到当前Group
-            if(rightGroup) {
-                group.add(rightGroup)
-            }
-        }
-
-        // 返回当前Group
-        return group;
-    }
-
-    render(elements, containerWidth, containerHeight) {
-        let nodes = elements,
-            node,
-            root,
-            i;
-
-        // 首先找出根节点
-        for(i = 0; i < nodes.length; i++) {
-            node = nodes[i];
-            
-            if(nodes[i].root) {
-                root = nodes[i];
-                break;
-            }
-        }
-        
-        this.layout(root, null);
-    }
-}
-```
+代码基本一致，但有几个地方还是要说明一下。像`Engine`，`Bound`等一些模块变量在js版本中被挂载在StructV暴露的全局变量`SV`上，如`SV.Engine`，其余的只需把ts版本的类型删去即可。`binaryTree.js`文件的[完整代码](https://github.com/phenomLi/StructV/blob/master/examples/binaryTree/binaryTree.js)
 
 <br />
 
@@ -864,6 +513,8 @@ class BinaryTree extends SV.Engine {
 
 新建一个`binaryTree.html`，写好必要的内容，然后引入StructV核心文件`sv.js`和我们的`binaryTree.js`：
 ```html
+// ------------------------- binaryTree.html ------------------------- 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -898,6 +549,8 @@ class BinaryTree extends SV.Engine {
 
 然后，初始化我们的二叉树实例：
 ```html
+// ------------------------- binaryTree.html ------------------------- 
+
 <script>
     let binaryTree = SV.create(document.getElementById('container'), BinaryTree);
 </script>
@@ -908,6 +561,8 @@ class BinaryTree extends SV.Engine {
 
 刷新浏览器，噔噔！什么都没有。当然啦，我们还没有输入源数据呢。还记得我们的`BinaryTreeSources`的格式吗，我们随便造几个结点，调用可视化实例上`source`函数输入源数据：
 ```html
+// ------------------------- binaryTree.html ------------------------- 
+
 <script>
 let binaryTree = SV.create(document.getElementById('container'), BinaryTree);
 
@@ -939,6 +594,8 @@ HERE SHE IS!!
 
 现在我们尝试一下，添加一个按钮，点击按钮，输入一个新的数据：
 ```html
+// ------------------------- binaryTree.html ------------------------- 
+
 <button id="btn">输入新数据</button>
 
 <script>
@@ -983,6 +640,8 @@ document.getElementById('btn').addEventListener('click', () => {
 
 还有更牛逼更新方式吗？有！现在我们不在点击按钮后重新输入新的数据，我们换一种方式：
 ```html
+// ------------------------- binaryTree.html ------------------------- 
+
 <script>
 
 // ...省略代码
@@ -1012,6 +671,8 @@ document.getElementById('btn').addEventListener('click', () => {
 这次，我们的`source`函数返回了一个`data`变量，然后我们在点击事件中修改`data`的值。再次刷新浏览器，看看效果是不是跟刚刚一样。
 
 `source`函数还可以接受第二个参数，该参数为一个布尔值。若为`true`，则开启源数据代理，返回一个新的被代理后的源数据。只要修改该源数据，StructV便会更新可视化视图。
+
+`binaryTree.html`文件的[完整代码](https://github.com/phenomLi/StructV/blob/master/examples/binaryTree/binaryTree.html)
 
 <br />
 

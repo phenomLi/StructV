@@ -4,6 +4,7 @@ import { anchorSet } from "./StructV/Model/linkModel";
 
 
 
+
 export class HashBlock extends Composite {
     constructor(id: string, name: string, opt: BaseShapeOption) {
         super(id, name, opt);
@@ -44,10 +45,19 @@ export class HashBlock extends Composite {
         });
     }
 
-    defaultAnchors(baseAnchors:anchorSet, width: number, height: number): anchorSet {
+    /**
+     * 修改默认锚点
+     * @param baseAnchors 默认的5个锚点
+     * @param width 图形的宽
+     * @param height 图形的高
+     */
+    defaultAnchors(baseAnchors: anchorSet, width: number, height: number): anchorSet {
         return {
             ...baseAnchors,
             1: [width / 4, 0]
         };
     }
 }
+
+
+
