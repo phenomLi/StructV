@@ -103,7 +103,22 @@ export declare class Engine<S extends Sources = Sources, P extends EngineOption 
      * 创建一个元素组
      */
     group(...arg: Element[]): Group;
-    isViewUpdating(isViewUpdatingFlag?: boolean): boolean;
+    /**
+     * 自动适应视图
+     */
+    adjust(): void;
+    /**
+     * 缩放视图
+     * @param x
+     * @param y
+     */
+    scale(x: number, y: number): void;
+    /**
+     * 位移视图
+     * @param x
+     * @param y
+     */
+    translate(x: number, y: number): void;
     /**
      * 重置数据
      * @param sources

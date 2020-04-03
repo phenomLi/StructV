@@ -1,25 +1,28 @@
+import { Element } from "../Model/element";
+import { GlobalShape } from "../View/globalShape";
 
 
 
 
-
+/**
+ * 交互模块基类
+ */
 export class Interaction {
-    // 当前缩放比例
-    zoomValue: number = 1;
-    // 最大缩放值
-    maxZoomValue: number = 3;
-    // 最小缩放值
-    minZoomValue: number = 0.5;
+    private name: string;
+    private elementList: Element[] = [];
+    private globalShape: GlobalShape = null;
 
-    constructor() {
+    // constructor(elementList: Element[], globalContainer: ViewContainer) {
+    //     this.elementList = elementList;
+    //     this.globalContainer = globalContainer;
+    // }
+
+
+    trigger() {
 
     }
 
-    zoom() {
+    feedback() {
 
-    }
-
-    drag() {
-        
     }
 }

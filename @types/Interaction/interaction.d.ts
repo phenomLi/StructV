@@ -1,8 +1,10 @@
+/**
+ * 交互模块基类
+ */
 export declare class Interaction {
-    zoomValue: number;
-    maxZoomValue: number;
-    minZoomValue: number;
-    constructor();
-    zoom(): void;
-    drag(): void;
+    private name;
+    private elementList;
+    private globalShape;
+    trigger(): void;
+    feedback(): void;
 }

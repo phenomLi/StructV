@@ -34,7 +34,8 @@ export interface LayoutOption {
     link: {
         [k: string]: Partial<LinkOption>;
     };
-    autoAdjust: boolean;
+    translate: [number, number] | 'auto';
+    scale: [number, number] | 'auto';
 }
 export interface AnimationOption {
     enableSkip: boolean;

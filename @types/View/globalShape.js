@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const renderer_1 = require("./renderer");
-class ViewContainer {
+class GlobalShape {
     constructor(renderer) {
         this.zrenderGroup = null;
         this.renderer = renderer;
@@ -49,6 +49,8 @@ class ViewContainer {
             scale: [x, y]
         };
         this.renderer.setAttribute(this.zrenderGroup, prop, animation);
+        this.scaleX = x;
+        this.scaleY = y;
     }
     /**
      * 位移
@@ -101,4 +103,4 @@ class ViewContainer {
         this.zrenderGroup.attr('position', [x, y]);
     }
 }
-exports.ViewContainer = ViewContainer;
+exports.GlobalShape = GlobalShape;

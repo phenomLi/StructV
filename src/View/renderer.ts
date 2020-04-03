@@ -1,11 +1,11 @@
 import { Shape, mountState } from "./../Shapes/shape";
 import { AnimationOption } from '../option';
-import { shapeContainer } from "./viewModel";
+import { shapeContainer, ViewModel } from "./viewModel";
 import { Util } from "../Common/util";
 import { Text } from "../Shapes/text";
-import { ViewContainer } from "./viewContainer";
+import { GlobalShape } from "./globalShape";
 import * as zrender from './../lib/zrender.min';
-import { Bound } from "./boundingRect";
+import { Bound, BoundingRect } from "./boundingRect";
 import { Animations } from "./animations";
 
 
@@ -21,8 +21,10 @@ export class Renderer {
     static zrender = zrender;
     // zrender实例
     private zr: any = null;
+    // 视图管理器
+    private viewModel: ViewModel;
     // 全局图形容器
-    public globalContainer: ViewContainer;
+    public globalShape: GlobalShape;
     // 配置项
     private option: AnimationOption;
     // 动画表
@@ -38,26 +40,34 @@ export class Renderer {
         props: { [key: string]: any }
     }[] = [];
 
+    // HTML容器
+    private container: HTMLElement;
     // 容器宽度
     private containerWidth: number;
     // 容器高度
     private containerHeight: number;
-    // 是否为首次加载状态
-    private init: boolean = true;
+    // 视图真实水平中心
+    private viewCenterX: number;
+    // 视图真实垂直中心
+    private viewCenterY: number;
     // 上一次更新是否被该次打断
     private isLastUpdateInterrupt: boolean = false;
+    // 是否首次渲染
+    private firstRender: boolean = true;
 
-    constructor(container: HTMLElement, opt: AnimationOption) {
+    constructor(container: HTMLElement, viewModel: ViewModel, opt: AnimationOption) {
+        this.viewModel = viewModel;
         this.zr = Renderer.zrender.init(container);
         this.animations = new Animations(opt);
-        this.globalContainer = new ViewContainer(this);
-        this.globalContainer.setOrigin(container.offsetWidth / 2, container.offsetHeight / 2);
+        this.globalShape = new GlobalShape(this);
+        this.globalShape.setOrigin(container.offsetWidth / 2, container.offsetHeight / 2);
         this.option = opt;
 
+        this.container = container;
         this.containerWidth = container.offsetWidth;
         this.containerHeight = container.offsetHeight;
 
-        this.zr.add(this.globalContainer.zrenderGroup);
+        this.zr.add(this.globalShape.zrenderGroup);
     }
 
     /**
@@ -112,7 +122,7 @@ export class Renderer {
                         }
                     }
                     // 将图形加入到全局图形容器
-                    this.globalContainer.add(shape);
+                    this.globalShape.add(shape);
                     // 设置叠层优先级
                     shape.zrenderShape.attr('z', shape.option.zIndex);
                     // 在图形加入容器后，设置为隐藏，为淡入淡出动画做铺垫
@@ -136,7 +146,7 @@ export class Renderer {
                 shape.visible = false;
                 shape.updateZrenderShape('hide', true, (shape => {
                     return () => {
-                        this.globalContainer.remove(shape);
+                        this.globalShape.remove(shape);
                         shape.zrenderShape = null;
                     }
                 })(shape));
@@ -194,6 +204,11 @@ export class Renderer {
                 });
             }
         }, 0);
+
+        // 取消首次渲染的标志
+        if(this.firstRender) {
+            this.firstRender = false;
+        }
     }
 
     /**
@@ -218,32 +233,19 @@ export class Renderer {
     }
 
     /**
-     * 调整视图至容器中央
-     * @param shapes
-     * @param globalContainer
-     */
-    adjustShapes(shapes: Shape[]) {
-        if(shapes.length === 0) return;
-
-        // 求视图上所有图形的包围盒并集
-        let globalBound = Bound.union(...shapes.map(item => item.getBound())),
-        cx = globalBound.x + globalBound.width / 2,
-        cy = globalBound.y + globalBound.height / 2;
-
-        this.globalContainer.translate(this.containerWidth / 2 - cx, this.containerHeight / 2 - cy, !this.init);
-
-        if(this.init) {
-            this.init = !this.init;
-        }
-    }
-
-    /**
      * 根据动画名称，获取animations对象的对应动画属性
      * @param shape 
      * @param animationName 
      */
     getAnimationProps(shape: Shape, animationName: string) {
         return this.animations[animationName](shape);
+    }
+
+    /**
+     * 获取全局容器图形
+     */
+    getGlobalShape(): GlobalShape {
+        return this.globalShape;
     }
 
     /**
@@ -261,11 +263,134 @@ export class Renderer {
     }
 
     /**
+     * 获取由所有图形组成的包围盒
+     * @param shapes
+     */
+    getGlobalBound(shapesBound: boolean = true): BoundingRect {
+        return shapesBound?
+            Bound.union(...this.viewModel.getShapeList().map(item => item.getBound())):
+            this.globalShape.getBound();
+    }
+
+    /**
+     * 根据 translate 和 scale 调整视图
+     * @param translate 
+     * @param scale 
+     */
+    adjustGlobalShape(translate: [number, number] | 'auto', scale: [number, number] | 'auto') {
+        let globalBound = this.getGlobalBound(),
+            cx = globalBound.x + globalBound.width / 2,
+            cy = globalBound.y + globalBound.height / 2;
+
+        this.globalShape.setOrigin(cx, cy);
+
+        if(translate !== undefined) {
+            if(Array.isArray(translate)) {
+                this.globalShape.translate(translate[0], translate[1], !this.firstRender);
+            }
+
+            if(translate === 'auto') {
+                this.autoGlobalCenter(globalBound, !this.firstRender);
+            }
+        }
+
+        if(scale !== undefined) {
+            if(Array.isArray(scale)) {
+                this.globalShape.scale(scale[0], scale[1], !this.firstRender);
+            }
+
+            if(scale === 'auto') {
+                this.autoGlobalSize(globalBound, !this.firstRender);
+            }
+        }
+    }
+
+    /**
+     * 重新整视图尺寸
+     * @param translate
+     * @param scale
+     */
+    resizeGlobalShape(translate: [number, number] | 'auto', scale: [number, number] | 'auto') {
+        let oldWidth = this.containerWidth,
+            oldHeight = this.containerHeight;
+
+        this.containerWidth = this.container.offsetWidth;
+        this.containerHeight = this.container.offsetHeight;
+
+        this.zr.resize();
+
+        let newTranslate = [
+            this.containerWidth / 2 - oldWidth / 2,
+            this.containerHeight / 2 - oldHeight / 2
+        ];
+
+        // 调整视图
+        this.adjustGlobalShape(newTranslate as [number, number], scale);
+        // 更新视图
+        this.updateZrenderShapes();
+    }
+
+    /**
+     * 调整视图至容器中央
+     * @param bound
+     * @param enableAnimation
+     */
+    autoGlobalCenter(bound: BoundingRect, enableAnimation: boolean = false) {
+        let cx = bound.x + bound.width / 2,
+            cy = bound.y + bound.height / 2,
+            dx, dy;
+
+        // 首次调整
+        if(this.viewCenterX === undefined && this.viewCenterY === undefined) {
+            dx = this.containerWidth / 2 - cx;
+            dy = this.containerHeight / 2 - cy;
+        }
+        else {
+            dx = this.viewCenterX - cx;
+            dy = this.viewCenterY - cy;
+        }
+
+        this.globalShape.translate(dx, dy, enableAnimation);
+
+        this.viewCenterX = cx;
+        this.viewCenterY = cy;
+    }
+
+    /**
+     * 调整视图使视图适应容器尺寸
+     * @param bound
+     * @param enableAnimation 
+     */
+    autoGlobalSize(bound: BoundingRect, enableAnimation: boolean = false) {
+        // 如果现在视图尺寸小于容器大小，则不用调整
+        if(bound.width < this.containerWidth && bound.height < this.containerHeight) {
+            return;
+        }
+
+        let dWidth = bound.width - this.containerWidth,
+            dHeight = bound.height - this.containerHeight,
+            maxEdge, maxBoundEdge;
+
+        if(dWidth > dHeight) {
+            maxBoundEdge = bound.width;
+            maxEdge = this.containerWidth;
+        }
+        else {
+            maxBoundEdge = bound.height;
+            maxEdge = this.containerHeight;
+        }
+
+        let scaleCoefficient = maxEdge / maxBoundEdge * 0.75;
+
+        this.globalShape.scale(scaleCoefficient, scaleCoefficient, enableAnimation);
+    }
+
+    /**
      * 清空数据
      */
     clear() {
         this.animatePropsQueue.length = 0;
         this.propsQueue.length = 0;
-        this.globalContainer.clear();
+        this.globalShape.clear();
     }
 }

@@ -11,6 +11,7 @@ export declare class ViewModel {
     private mainShapeContainer;
     private curShapeContainer;
     private shapeList;
+    private maintainShapeList;
     private removeList;
     private renderer;
     private layoutOption;
@@ -24,6 +25,10 @@ export declare class ViewModel {
      * @param subShapeConfig
      */
     createShape(id: string, shapeName: string, opt: any): Shape;
+    /**
+     * 创建复合图形的子图形
+     * @param shape
+     */
     createCompositeSubShapes(shape: Composite): void;
     /**
      * 将图形加入到view
@@ -67,6 +72,28 @@ export declare class ViewModel {
      * 清空所有图形
      */
     clearShape(): void;
+    /**
+     * 获取图形队列
+     */
+    getShapeList(): Shape[];
+    /**
+     * 位移全局容器
+     * @param dx
+     * @param dy
+     * @param enableAnimation
+     */
+    translateView(dx: number, dy: number, enableAnimation: boolean): void;
+    /**
+     * 缩放全局容器
+     * @param x
+     * @param y
+     * @param enableAnimation
+     */
+    scaleView(x: number, y: number, enableAnimation: boolean): void;
+    /**
+     * 调整视图使得适应容器
+     */
+    resizeView(): void;
     /**
      * 视图更新前
      */

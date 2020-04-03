@@ -16,13 +16,15 @@ class ViewModel {
         this.curShapeContainer = {};
         // 图形队列
         this.shapeList = [];
+        // 持续的图形队列
+        this.maintainShapeList = [];
         // 移除图形队列。需要移除的图形将被放进这个列表
         this.removeList = [];
         // 静态文本id
         this.staticTextId = 0;
         this.differ = new differ_1.Differ();
         this.layoutOption = engine.layoutOption;
-        this.renderer = new renderer_1.Renderer(container, engine.animationOption);
+        this.renderer = new renderer_1.Renderer(container, this, engine.animationOption);
         this.curShapeContainer = this.mainShapeContainer;
     }
     ;
@@ -59,6 +61,10 @@ class ViewModel {
         }
         return shape;
     }
+    /**
+     * 创建复合图形的子图形
+     * @param shape
+     */
     createCompositeSubShapes(shape) {
         shape.subShapes.map((item, index) => {
             let subShapeOption = { style: {} };
@@ -152,7 +158,7 @@ class ViewModel {
         // 更新所有复合图形
         this.updateComposite();
         // 如果进行这次更新时上次更新还未完成，跳过上次更新的动画
-        if (this.engine.isViewUpdating()) {
+        if (this.engine.isViewUpdatingFlag) {
             this.renderer.skipUpdateZrenderShapes(() => {
                 this.afterUpdate.call(this);
             });
@@ -167,16 +173,12 @@ class ViewModel {
         this.beforeUpdate();
         // 渲染zrender图形实例
         this.renderer.renderZrenderShapes(this.mainShapeContainer, this.removeList);
-        // 调整视图元素
-        if (this.layoutOption.autoAdjust === undefined || this.layoutOption.autoAdjust === true) {
-            this.renderer.adjustShapes(this.shapeList);
-        }
+        // 调整视图
+        this.renderer.adjustGlobalShape(this.layoutOption.translate, this.layoutOption.scale);
         // 更新zrender图形实例
         this.renderer.updateZrenderShapes(() => {
             this.afterUpdate.call(this);
         });
-        // 将当前图形容器改为临时容器
-        this.curShapeContainer = {};
         //console.log(this.mainShapeContainer);
     }
     /**
@@ -188,8 +190,9 @@ class ViewModel {
         Object.keys(this.mainShapeContainer).map(shapeList => {
             this.mainShapeContainer[shapeList].map((shape) => shape.visited && (shape.visited = false));
         });
+        this.maintainShapeList = this.shapeList;
         this.staticTextId = 0;
-        this.shapeList.length = 0;
+        this.shapeList = [];
         this.removeList.length = 0;
         this.curShapeContainer = {};
     }
@@ -203,19 +206,49 @@ class ViewModel {
         this.removeList.length = 0;
         this.renderer.clear();
     }
+    /**
+     * 获取图形队列
+     */
+    getShapeList() {
+        return this.shapeList.length ? this.shapeList : this.maintainShapeList;
+    }
+    /**
+     * 位移全局容器
+     * @param dx
+     * @param dy
+     * @param enableAnimation
+     */
+    translateView(dx, dy, enableAnimation) {
+        this.renderer.globalShape.translate(dx, dy, enableAnimation);
+    }
+    /**
+     * 缩放全局容器
+     * @param x
+     * @param y
+     * @param enableAnimation
+     */
+    scaleView(x, y, enableAnimation) {
+        this.renderer.globalShape.scale(x, y, enableAnimation);
+    }
+    /**
+     * 调整视图使得适应容器
+     */
+    resizeView() {
+        this.renderer.resizeGlobalShape(this.layoutOption.translate, this.layoutOption.scale);
+    }
     // ----------------------------------------------------------------
     /**
      * 视图更新前
      */
     beforeUpdate() {
-        this.engine.isViewUpdating(true);
+        this.engine.isViewUpdatingFlag = true;
         this.engine.beforeUpdate();
     }
     /**
      * 视图更新后
      */
     afterUpdate() {
-        this.engine.isViewUpdating(false);
+        this.engine.isViewUpdatingFlag = false;
         this.engine.afterUpdate();
     }
 }

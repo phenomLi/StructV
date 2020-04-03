@@ -51,8 +51,10 @@ export interface LayoutOption {
     pointer: { [k: string]: Partial<PointerOption> };
     // 连接线图形配置
     link: { [k: string]: Partial<LinkOption> };
-    // 是否自动将可视图形移到画布中央
-    autoAdjust: boolean;
+    // 位移，默认[number, number]，当为'auto'时，默认居中于容器
+    translate: [number, number] | 'auto';
+    // 缩放，默认[number, number]，当为'auto'时，默认适应容器
+    scale: [number, number] | 'auto';
 }
 
 // 动画配置项

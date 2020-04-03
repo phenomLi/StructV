@@ -177,13 +177,27 @@ class Engine {
     group(...arg) {
         return new group_1.Group(...arg);
     }
-    isViewUpdating(isViewUpdatingFlag) {
-        if (isViewUpdatingFlag !== undefined && typeof isViewUpdatingFlag === 'boolean') {
-            this.isViewUpdatingFlag = isViewUpdatingFlag;
-        }
-        else {
-            return this.isViewUpdatingFlag;
-        }
+    /**
+     * 自动适应视图
+     */
+    adjust() {
+        this.viewModel.resizeView();
+    }
+    /**
+     * 缩放视图
+     * @param x
+     * @param y
+     */
+    scale(x, y) {
+        this.viewModel.scaleView(x, y, this.animationOption.enableAnimation);
+    }
+    /**
+     * 位移视图
+     * @param x
+     * @param y
+     */
+    translate(x, y) {
+        this.viewModel.translateView(x, y, this.animationOption.enableAnimation);
     }
     /**
      * 重置数据

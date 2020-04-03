@@ -1,9 +1,11 @@
 import { zrenderShape, Renderer } from "./renderer";
 import { Shape } from "../Shapes/shape";
 import { BoundingRect } from "./boundingRect";
-export declare class ViewContainer {
+export declare class GlobalShape {
     renderer: Renderer;
     zrenderGroup: zrenderShape;
+    scaleX: number;
+    scaleY: number;
     constructor(renderer: Renderer);
     /**
      * 添加图形

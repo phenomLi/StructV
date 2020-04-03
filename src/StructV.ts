@@ -16,7 +16,7 @@ import { DualNode } from "./SpecificShapes/dualNode";
 import { Curve } from "./Shapes/curve";
 import { TwoCellBlock } from "./SpecificShapes/twoCellBlock";
 import { Vector } from "./Common/vector";
-import { SourceElement } from "./sources";
+
 
 
 

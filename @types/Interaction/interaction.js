@@ -1,17 +1,20 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * 交互模块基类
+ */
 class Interaction {
     constructor() {
-        // 当前缩放比例
-        this.zoomValue = 1;
-        // 最大缩放值
-        this.maxZoomValue = 3;
-        // 最小缩放值
-        this.minZoomValue = 0.5;
+        this.elementList = [];
+        this.globalShape = null;
     }
-    zoom() {
+    // constructor(elementList: Element[], globalContainer: ViewContainer) {
+    //     this.elementList = elementList;
+    //     this.globalContainer = globalContainer;
+    // }
+    trigger() {
     }
-    drag() {
+    feedback() {
     }
 }
 exports.Interaction = Interaction;

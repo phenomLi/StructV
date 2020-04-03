@@ -240,15 +240,30 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     public group(...arg: Element[]): Group {
         return new Group(...arg);
     }
+    
+    /**
+     * 自动适应视图
+     */
+    public adjust() {
+        this.viewModel.resizeView();
+    }
 
+    /**
+     * 缩放视图
+     * @param x 
+     * @param y 
+     */
+    public scale(x: number, y: number) {
+        this.viewModel.scaleView(x, y, this.animationOption.enableAnimation);
+    }
 
-    public isViewUpdating(isViewUpdatingFlag?: boolean): boolean {
-        if(isViewUpdatingFlag !== undefined && typeof isViewUpdatingFlag === 'boolean') {
-            this.isViewUpdatingFlag = isViewUpdatingFlag;
-        }
-        else {
-            return this.isViewUpdatingFlag;
-        }   
+    /**
+     * 位移视图
+     * @param x 
+     * @param y 
+     */
+    public translate(x: number, y: number) {
+        this.viewModel.translateView(x, y, this.animationOption.enableAnimation);
     }
 
     /**

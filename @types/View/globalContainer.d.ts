@@ -1,7 +1,7 @@
 import { zrenderShape, Renderer } from "./renderer";
 import { Shape } from "../Shapes/shape";
 import { BoundingRect } from "./boundingRect";
-export declare class ViewContainer {
+export declare class GlobalContainer {
     renderer: Renderer;
     zrenderGroup: zrenderShape;
     constructor(renderer: Renderer);

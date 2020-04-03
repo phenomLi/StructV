@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const renderer_1 = require("./renderer");
-class ViewContainer {
+class GlobalContainer {
     constructor(renderer) {
         this.zrenderGroup = null;
         this.renderer = renderer;
@@ -101,4 +101,4 @@ class ViewContainer {
         this.zrenderGroup.attr('position', [x, y]);
     }
 }
-exports.ViewContainer = ViewContainer;
+exports.GlobalContainer = GlobalContainer;
