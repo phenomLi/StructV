@@ -8,8 +8,12 @@ export class GlobalShape {
     renderer: Renderer;
     zrenderGroup: zrenderShape = null;
 
-    scaleX: number;
-    scaleY: number;
+    scaleX: number = 1;
+    scaleY: number = 1;
+    // 真实水平中心
+    centerX: number;
+    // 真实垂直中心
+    centerY: number;
 
     constructor(renderer: Renderer) {
         this.renderer = renderer;

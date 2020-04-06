@@ -29,12 +29,12 @@ export class ViewModel {
     private maintainShapeList: Shape[] = [];
     // 移除图形队列。需要移除的图形将被放进这个列表
     private removeList: Shape[] = [];
-    // 渲染器
-    private renderer: Renderer;
     // 布局配置项
     private layoutOption: LayoutOption;
     // 静态文本id
     public staticTextId: number = 0;
+    // 渲染器
+    public renderer: Renderer;
 
     constructor(private engine: Engine, container: HTMLElement) {
         this.differ = new Differ();
@@ -265,33 +265,6 @@ export class ViewModel {
      */
     getShapeList(): Shape[] {
         return this.shapeList.length? this.shapeList: this.maintainShapeList;
-    }
-
-    /**
-     * 位移全局容器
-     * @param dx 
-     * @param dy 
-     * @param enableAnimation
-     */
-    translateView(dx: number, dy: number, enableAnimation: boolean) {
-        this.renderer.globalShape.translate(dx, dy, enableAnimation);
-    }
-
-    /**
-     * 缩放全局容器
-     * @param x 
-     * @param y 
-     * @param enableAnimation
-     */
-    scaleView(x: number, y: number, enableAnimation: boolean) {
-        this.renderer.globalShape.scale(x, y, enableAnimation);
-    }
-
-    /**
-     * 调整视图使得适应容器
-     */
-    resizeView() {
-        this.renderer.resizeGlobalShape(this.layoutOption.translate, this.layoutOption.scale);
     }
 
     // ----------------------------------------------------------------

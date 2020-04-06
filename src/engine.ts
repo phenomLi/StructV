@@ -105,6 +105,18 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     }
 
     /**
+     * 重置数据
+     * @param sources
+     * @param stringifySources
+     */
+    private reset(stringifySources: string) {
+        this.dataModel.resetData();
+        this.viewModel.resetData();
+
+        this.stringifySources = stringifySources;
+    }
+
+    /**
      * 输入源数据
      * （可视化主流程）
      * @param sources 
@@ -244,39 +256,10 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     /**
      * 自动适应视图
      */
-    public adjust() {
-        this.viewModel.resizeView();
+    public resize() {
+        this.viewModel.renderer.resizeGlobalShape(this.layoutOption.translate, this.layoutOption.scale);
     }
 
-    /**
-     * 缩放视图
-     * @param x 
-     * @param y 
-     */
-    public scale(x: number, y: number) {
-        this.viewModel.scaleView(x, y, this.animationOption.enableAnimation);
-    }
-
-    /**
-     * 位移视图
-     * @param x 
-     * @param y 
-     */
-    public translate(x: number, y: number) {
-        this.viewModel.translateView(x, y, this.animationOption.enableAnimation);
-    }
-
-    /**
-     * 重置数据
-     * @param sources
-     * @param stringifySources
-     */
-    private reset(stringifySources: string) {
-        this.dataModel.resetData();
-        this.viewModel.resetData();
-
-        this.stringifySources = stringifySources;
-    }
 
     // ------------------------------------需继承重写的方法------------------------------------ //
 

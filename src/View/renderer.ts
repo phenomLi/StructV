@@ -46,10 +46,6 @@ export class Renderer {
     private containerWidth: number;
     // 容器高度
     private containerHeight: number;
-    // 视图真实水平中心
-    private viewCenterX: number;
-    // 视图真实垂直中心
-    private viewCenterY: number;
     // 上一次更新是否被该次打断
     private isLastUpdateInterrupt: boolean = false;
     // 是否首次渲染
@@ -341,19 +337,19 @@ export class Renderer {
             dx, dy;
 
         // 首次调整
-        if(this.viewCenterX === undefined && this.viewCenterY === undefined) {
+        if(this.globalShape.centerX === undefined && this.globalShape.centerY === undefined) {
             dx = this.containerWidth / 2 - cx;
             dy = this.containerHeight / 2 - cy;
         }
         else {
-            dx = this.viewCenterX - cx;
-            dy = this.viewCenterY - cy;
+            dx = this.globalShape.centerX - cx;
+            dy = this.globalShape.centerY - cy;
         }
 
         this.globalShape.translate(dx, dy, enableAnimation);
 
-        this.viewCenterX = cx;
-        this.viewCenterY = cy;
+        this.globalShape.centerX = cx;
+        this.globalShape.centerY = cy;
     }
 
     /**
@@ -362,27 +358,41 @@ export class Renderer {
      * @param enableAnimation 
      */
     autoGlobalSize(bound: BoundingRect, enableAnimation: boolean = false) {
-        // 如果现在视图尺寸小于容器大小，则不用调整
-        if(bound.width < this.containerWidth && bound.height < this.containerHeight) {
-            return;
-        }
+        let globalScaleX = this.globalShape.scaleX,
+            globalScaleY = this.globalShape.scaleY,
+            globalWidth = bound.width * globalScaleX,
+            globalHeight = bound.height * globalScaleY,
+            maxEdge =  globalWidth > globalHeight? this.containerWidth: this.containerHeight,
+            maxBoundEdge = globalWidth > globalHeight? globalWidth: globalHeight,
+            dWidth = globalWidth - this.containerWidth,
+            dHeight = globalHeight - this.containerHeight,
+            edge, boundEdge;
 
-        let dWidth = bound.width - this.containerWidth,
-            dHeight = bound.height - this.containerHeight,
-            maxEdge, maxBoundEdge;
-
-        if(dWidth > dHeight) {
-            maxBoundEdge = bound.width;
-            maxEdge = this.containerWidth;
+        if(dWidth < 0 && dHeight < 0) {
+            edge = maxEdge;
+            boundEdge = maxBoundEdge;
         }
         else {
-            maxBoundEdge = bound.height;
-            maxEdge = this.containerHeight;
+            if(dWidth > dHeight) {
+                boundEdge = globalWidth;
+                edge = this.containerWidth;
+            }
+            else {
+                boundEdge = globalHeight;
+                edge = this.containerHeight;
+            }
         }
 
-        let scaleCoefficient = maxEdge / maxBoundEdge * 0.75;
+        let scaleCoefficient = edge * 0.75 / boundEdge,
+            scaleX = this.globalShape.scaleX * scaleCoefficient,
+            scaleY = this.globalShape.scaleY * scaleCoefficient;
 
-        this.globalShape.scale(scaleCoefficient, scaleCoefficient, enableAnimation);
+        if(scaleX > 1) scaleX = 1;
+        if(scaleY > 1) scaleY = 1;
+        if(scaleX < 0.25) scaleX = 0.25;
+        if(scaleY < 0.25) scaleY = 0.25;
+
+        this.globalShape.scale(scaleX, scaleY, enableAnimation);
     }
 
     /**
