@@ -50,6 +50,8 @@ export class Renderer {
     private isLastUpdateInterrupt: boolean = false;
     // 是否首次渲染
     private firstRender: boolean = true;
+    // 上一次视图的真实中心（不考虑 position）
+    public lastCenter: [number, number];
 
     constructor(container: HTMLElement, viewModel: ViewModel, opt: AnimationOption) {
         this.viewModel = viewModel;
@@ -148,6 +150,13 @@ export class Renderer {
                 })(shape));
             }
         });
+
+        // 更新视图缩放 / 旋转中心
+        let globalBound = this.getGlobalBound(),
+            cx = globalBound.x + globalBound.width / 2,
+            cy = globalBound.y + globalBound.height / 2;
+
+        this.globalShape.setOrigin(cx, cy);
     }
 
     /**
@@ -170,7 +179,8 @@ export class Renderer {
             this.propsQueue.length = 0;
 
             if(this.option.enableAnimation === false) {
-                callback && callback();;
+                this.viewModel.isViewUpdating = false;
+                callback && callback();
             }
         }
 
@@ -190,8 +200,9 @@ export class Renderer {
 
                             // 所有动画结束，触发afterUpadte回调事件
                             if(counter === queueLength && this.isLastUpdateInterrupt === false) {
-                                callback && callback();
+                                this.viewModel.isViewUpdating = false;
                                 this.animatePropsQueue.length = 0;
+                                callback && callback();
                             }
 
                             item.props.callback && item.props.callback();
@@ -223,49 +234,10 @@ export class Renderer {
 
             // 所有动画结束，触发afterUpadte回调事件
             callback && callback();
+            this.viewModel.isViewUpdating = false;
             this.animatePropsQueue.length = 0;
             this.isLastUpdateInterrupt = false;
         }
-    }
-
-    /**
-     * 根据动画名称，获取animations对象的对应动画属性
-     * @param shape 
-     * @param animationName 
-     */
-    getAnimationProps(shape: Shape, animationName: string) {
-        return this.animations[animationName](shape);
-    }
-
-    /**
-     * 获取全局容器图形
-     */
-    getGlobalShape(): GlobalShape {
-        return this.globalShape;
-    }
-
-    /**
-     * 获取容器宽度
-     */
-    getContainerWidth(): number {
-        return this.containerWidth;
-    }
-
-    /**
-     * 获取容器高度
-     */
-    getContainerHeight(): number {
-        return this.containerHeight;
-    }
-
-    /**
-     * 获取由所有图形组成的包围盒
-     * @param shapes
-     */
-    getGlobalBound(shapesBound: boolean = true): BoundingRect {
-        return shapesBound?
-            Bound.union(...this.viewModel.getShapeList().map(item => item.getBound())):
-            this.globalShape.getBound();
     }
 
     /**
@@ -274,11 +246,7 @@ export class Renderer {
      * @param scale 
      */
     adjustGlobalShape(translate: [number, number] | 'auto', scale: [number, number] | 'auto') {
-        let globalBound = this.getGlobalBound(),
-            cx = globalBound.x + globalBound.width / 2,
-            cy = globalBound.y + globalBound.height / 2;
-
-        this.globalShape.setOrigin(cx, cy);
+        let globalBound = this.getGlobalBound();
 
         if(translate !== undefined) {
             if(Array.isArray(translate)) {
@@ -292,6 +260,13 @@ export class Renderer {
 
         if(scale !== undefined) {
             if(Array.isArray(scale)) {
+
+                // 限制缩放大小在 [0.25, 4]
+                if(scale[0] > 4) scale[0] = 4;
+                if(scale[0] < 0.25) scale[0] = 0.25;
+                if(scale[1] > 4) scale[1] = 4;
+                if(scale[1] < 0.25) scale[1] = 0.25;
+
                 this.globalShape.scale(scale[0], scale[1], !this.firstRender);
             }
 
@@ -307,17 +282,19 @@ export class Renderer {
      * @param scale
      */
     resizeGlobalShape(translate: [number, number] | 'auto', scale: [number, number] | 'auto') {
-        let oldWidth = this.containerWidth,
-            oldHeight = this.containerHeight;
+        if(this.viewModel.isViewUpdating) return;
 
+        let position = this.globalShape.getPosition();
+
+        this.viewModel.isViewUpdating = true;
         this.containerWidth = this.container.offsetWidth;
         this.containerHeight = this.container.offsetHeight;
 
         this.zr.resize();
 
         let newTranslate = [
-            this.containerWidth / 2 - oldWidth / 2,
-            this.containerHeight / 2 - oldHeight / 2
+            this.containerWidth / 2 - (this.lastCenter[0] + position[0]),
+            this.containerHeight / 2 - (this.lastCenter[1] + position[1])
         ];
 
         // 调整视图
@@ -332,24 +309,23 @@ export class Renderer {
      * @param enableAnimation
      */
     autoGlobalCenter(bound: BoundingRect, enableAnimation: boolean = false) {
-        let cx = bound.x + bound.width / 2,
+        let position = this.globalShape.getPosition(),
+            cx = bound.x + bound.width / 2,
             cy = bound.y + bound.height / 2,
             dx, dy;
 
         // 首次调整
-        if(this.globalShape.centerX === undefined && this.globalShape.centerY === undefined) {
+        if(this.firstRender) {
             dx = this.containerWidth / 2 - cx;
             dy = this.containerHeight / 2 - cy;
         }
         else {
-            dx = this.globalShape.centerX - cx;
-            dy = this.globalShape.centerY - cy;
+            dx = this.lastCenter[0] - cx;
+            dy = this.lastCenter[1] - cy;
         }
 
         this.globalShape.translate(dx, dy, enableAnimation);
-
-        this.globalShape.centerX = cx;
-        this.globalShape.centerY = cy;
+        this.lastCenter = [cx, cy];
     }
 
     /**
@@ -358,10 +334,9 @@ export class Renderer {
      * @param enableAnimation 
      */
     autoGlobalSize(bound: BoundingRect, enableAnimation: boolean = false) {
-        let globalScaleX = this.globalShape.scaleX,
-            globalScaleY = this.globalShape.scaleY,
-            globalWidth = bound.width * globalScaleX,
-            globalHeight = bound.height * globalScaleY,
+        let globalScale = this.globalShape.getScale(),
+            globalWidth = bound.width * globalScale[0],
+            globalHeight = bound.height * globalScale[1],
             maxEdge =  globalWidth > globalHeight? this.containerWidth: this.containerHeight,
             maxBoundEdge = globalWidth > globalHeight? globalWidth: globalHeight,
             dWidth = globalWidth - this.containerWidth,
@@ -384,8 +359,8 @@ export class Renderer {
         }
 
         let scaleCoefficient = edge * 0.75 / boundEdge,
-            scaleX = this.globalShape.scaleX * scaleCoefficient,
-            scaleY = this.globalShape.scaleY * scaleCoefficient;
+            scaleX = globalScale[0] * scaleCoefficient,
+            scaleY = globalScale[1] * scaleCoefficient;
 
         if(scaleX > 1) scaleX = 1;
         if(scaleY > 1) scaleY = 1;
@@ -393,6 +368,53 @@ export class Renderer {
         if(scaleY < 0.25) scaleY = 0.25;
 
         this.globalShape.scale(scaleX, scaleY, enableAnimation);
+    }
+
+    /**
+     * 根据动画名称，获取animations对象的对应动画属性
+     * @param shape 
+     * @param animationName 
+     */
+    getAnimationProps(shape: Shape, animationName: string) {
+        return this.animations[animationName](shape);
+    }
+
+    /**
+     * 获取由所有图形组成的包围盒
+     * @param shapes
+     */
+    getGlobalBound(shapesBound: boolean = true): BoundingRect {
+        return shapesBound?
+            Bound.union(...this.viewModel.getShapeList().map(item => item.getBound())):
+            this.globalShape.getBound();
+    }
+
+    /**
+     * 获取全局容器图形
+     */
+    getGlobalShape(): GlobalShape {
+        return this.globalShape;
+    }
+
+    /**
+     * 获取 html 容器
+     */
+    getContainer(): HTMLElement {
+        return this.container;
+    }
+
+    /**
+     * 获取容器宽度
+     */
+    getContainerWidth(): number {
+        return this.containerWidth;
+    }
+
+    /**
+     * 获取容器高度
+     */
+    getContainerHeight(): number {
+        return this.containerHeight;
     }
 
     /**

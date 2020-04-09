@@ -175,6 +175,16 @@ export const Util = {
         else {
             return text;
         }
+    },
+
+    /**
+     * 牵制某个值
+     * @param value 
+     */
+    clamp(value: number, max: number, min: number): number {
+        if(value <= max && value >= min) return value;
+        if(value > max) return max;
+        if(value < min) return min;
     }
 };
 

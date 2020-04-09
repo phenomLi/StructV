@@ -127,6 +127,13 @@ export class DataModel {
     }
 
     /**
+     * 获取ElementLits
+     */
+    getElementList(): Element[] {
+        return this.elementList;
+    }
+
+    /**
      * 元素工厂，创建Element
      * @param elementName
      * @param sourceElement

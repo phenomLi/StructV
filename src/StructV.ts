@@ -63,7 +63,7 @@ export const SV = {
         engineConstruct['id'] = Util.generateId();
 
         let engine = new engineConstruct(container);
-        engine.applyOption(opt);
+        engine.applyOptions(opt);
 
         return engine;
     }

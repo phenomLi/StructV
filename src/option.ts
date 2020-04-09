@@ -2,6 +2,7 @@ import { Style, BaseOption } from "./Shapes/shape";
 import { anchorSet } from "./Model/linkModel";
 
 
+
 // 图形配置项
 export interface BaseShapeOption extends BaseOption {
     // 锚点
@@ -57,6 +58,14 @@ export interface LayoutOption {
     scale: [number, number] | 'auto';
 }
 
+// 交互配置项
+export interface InteractionOption {
+    // 允许鼠标滚轮缩放视图
+    wheelScale: [number, number];
+    // 允许拖拽视图
+    dragView: boolean;
+}
+
 // 动画配置项
 export interface AnimationOption {
     // 是否允许跳过动画
@@ -76,6 +85,8 @@ export interface EngineOption {
     element?: Partial<ElementsOption>;
     // 布局配置项
     layout?: Partial<LayoutOption>;
+    // 交互配置项
+    interaction?: Partial<InteractionOption>;
     // 动画配置项
     animation?: Partial<AnimationOption>;
 };

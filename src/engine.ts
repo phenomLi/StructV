@@ -1,13 +1,14 @@
 import { ViewModel } from "./View/viewModel";
 import { Util } from "./Common/util";
 import { DataModel, ElementContainer } from "./Model/dataModel";
-import { LayoutOption, AnimationOption, EngineOption, ElementsOption } from "./option";
+import { LayoutOption, AnimationOption, EngineOption, ElementsOption, InteractionOption } from "./option";
 import { Sources, SourceElement } from "./sources";
 import { Shape, Style } from "./Shapes/shape";
 import { Element } from "./Model/element";
 import { Group } from "./Model/group";
 import { anchor } from "./Model/linkModel";
 import { SourcesProxy } from "./Model/sourcesProxy";
+import { InteractionModel } from "./Interaction/interactionModel";
 
 
 
@@ -38,6 +39,8 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     private dataModel: DataModel = null;
     // 视图模型控制器
     private viewModel: ViewModel = null;
+    // 交互模型
+    private interactionModel: InteractionModel = null;
     // 源数据代理器
     private sourcesProxy: SourcesProxy = null;
 
@@ -47,6 +50,8 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     elementsOption: ElementsOption;
     // 布局配置项
     layoutOption: LayoutOption;
+    // 交互配置项
+    interactionOption: InteractionOption;
     // 动画配置项
     animationOption: AnimationOption = {
         enableSkip: true,
@@ -55,8 +60,6 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
         duration: 1000
     };
 
-    // 是否正在执行视图更新
-    isViewUpdatingFlag: boolean = false;
     // 代理过的源数据
     proxySources: S = null;
 
@@ -67,9 +70,6 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     // 使用Engine的构造函数注册的图形将被存放在此处，只有注册该图形的Engine可访问到这些图形（私有）
     scopedShapesTable: {[key: string]: { new(id: string, name: string, opt: any): Shape }} = {};
 
-    // 交互插件（TODO）
-    // interactions: Interaction[] = null;
-
     constructor(container: HTMLElement, engineInfo: EngineInfo) {
         Util.assert(!container, 'HTML元素不存在');
 
@@ -78,6 +78,7 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
         
         this.elementsOption = engineInfo.defaultOption.element;
         this.layoutOption = engineInfo.defaultOption.layout as LayoutOption;
+        this.interactionOption = engineInfo.defaultOption.interaction as InteractionOption;
         Util.merge(this.animationOption, engineInfo.defaultOption.animation);
 
         // 若有自定义Element，注册
@@ -101,7 +102,13 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
 
         this.viewModel = new ViewModel(this, container);
         this.dataModel = new DataModel(this, this.viewModel);
+        this.interactionModel = new InteractionModel(this.dataModel, this.viewModel);
         this.sourcesProxy = new SourcesProxy(this);
+
+        // 初始化交互模块
+        if(this.interactionOption) {
+            this.interactionModel.initInteractions(this.interactionOption);
+        }
     }
 
     /**
@@ -124,7 +131,7 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
      */
     public source(sources: S, proxySources: boolean = false): void | S {
         // 如果正在执行视图更新，则取消该次动作（避免用户频繁点击）
-        if(!this.animationOption.enableSkip && this.isViewUpdatingFlag) {
+        if(!this.animationOption.enableSkip && this.viewModel.isViewUpdating) {
             return;
         }
         // 若不输入源数据而且之前也没有输入过源数据，则什么也不干
@@ -170,11 +177,12 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
      * 应用配置项
      * @param opt 
      */
-    public applyOption(opt: P) {
+    public applyOptions(opt: P) {
         if(!opt || Object.keys(opt).length === 0) return;
 
         Util.merge(this.animationOption, opt['animation']);
         Util.merge(this.elementsOption, opt['element']);
+        Util.merge(this.interactionOption, opt['interaction']);
         Util.extends(this.layoutOption, opt['layout']);
     }
 

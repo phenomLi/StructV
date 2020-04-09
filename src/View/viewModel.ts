@@ -35,6 +35,8 @@ export class ViewModel {
     public staticTextId: number = 0;
     // 渲染器
     public renderer: Renderer;
+    // 是否正在执行视图更新
+    public isViewUpdating: boolean = false;
 
     constructor(private engine: Engine, container: HTMLElement) {
         this.differ = new Differ();
@@ -202,7 +204,7 @@ export class ViewModel {
         this.updateComposite();
 
         // 如果进行这次更新时上次更新还未完成，跳过上次更新的动画
-        if(this.engine.isViewUpdatingFlag) {
+        if(this.isViewUpdating) {
             this.renderer.skipUpdateZrenderShapes(() => {
                 this.afterUpdate.call(this);
             });
@@ -217,6 +219,7 @@ export class ViewModel {
             this.differ.patch(this, patchList);
         }
 
+        this.isViewUpdating = true;
         this.beforeUpdate();
         // 渲染zrender图形实例
         this.renderer.renderZrenderShapes(this.mainShapeContainer, this.removeList);
@@ -273,7 +276,6 @@ export class ViewModel {
      * 视图更新前 
      */
     beforeUpdate() {
-        this.engine.isViewUpdatingFlag = true;
         this.engine.beforeUpdate();
     }
 
@@ -281,7 +283,6 @@ export class ViewModel {
      * 视图更新后
      */
     afterUpdate() {
-        this.engine.isViewUpdatingFlag = false;
         this.engine.afterUpdate();
     }
 }

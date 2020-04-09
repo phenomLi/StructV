@@ -8,13 +8,6 @@ export class GlobalShape {
     renderer: Renderer;
     zrenderGroup: zrenderShape = null;
 
-    scaleX: number = 1;
-    scaleY: number = 1;
-    // 真实水平中心
-    centerX: number;
-    // 真实垂直中心
-    centerY: number;
-
     constructor(renderer: Renderer) {
         this.renderer = renderer;
         this.zrenderGroup = new Renderer.zrender.Group();
@@ -66,9 +59,6 @@ export class GlobalShape {
         };
 
         this.renderer.setAttribute(this.zrenderGroup, prop, animation);
-
-        this.scaleX = x;
-        this.scaleY = y;
     }
 
     /**
@@ -87,22 +77,17 @@ export class GlobalShape {
     }
 
     /**
-     * 获取图形组中心
+     * 获取 zrender 图形的 position
      */
-    getCenter(): { x: number, y: number } {
-        let bound = this.zrenderGroup.getBoundingRect();
-
-        return {
-            x: bound.x + bound.width / 2,
-            y: bound.y + bound.height / 2
-        };
+    getPosition(): [number, number] {
+        return [this.zrenderGroup.position[0], this.zrenderGroup.position[1]];
     }
 
     /**
-     * 获取position
+     * 获取 zrender 图形的 scale
      */
-    getPosition(): [number, number] {
-        return this.zrenderGroup.position;
+    getScale(): [number, number] {
+        return this.zrenderGroup.scale;
     }
 
     /**
