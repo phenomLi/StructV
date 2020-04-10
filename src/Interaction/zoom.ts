@@ -13,18 +13,21 @@ export class Zoom extends Interaction {
     // 最小缩放值
     minZoomValue: number = 0.25;
 
-    init(zoomRange: [number, number]) {
+    init(zoomRange: [number, number] | boolean) {
         if(!zoomRange) return;
 
         let container = this.renderer.getContainer();
 
-        this.minZoomValue = zoomRange[0];
-        this.maxZoomValue = zoomRange[1];
-        this.minZoomValue = Util.clamp(this.minZoomValue, 0, Infinity);
-        this.maxZoomValue = Util.clamp(this.maxZoomValue, 0, Infinity);
-
+        // 自定义缩放限制值
+        if(Array.isArray(zoomRange)) {
+            this.minZoomValue = zoomRange[0];
+            this.maxZoomValue = zoomRange[1];
+            this.minZoomValue = Util.clamp(this.minZoomValue, 0, Infinity);
+            this.maxZoomValue = Util.clamp(this.maxZoomValue, 0, Infinity);
+        }
+        
         container.addEventListener('wheel', (event: WheelEvent) => {
-            this.handle(event.detail > 0? -1: 1);
+            this.handle(event['wheelDelta'] > 0? 1: -1);
         });
     }
 
@@ -43,6 +46,4 @@ export class Zoom extends Interaction {
 
         globalShape.scale(scaleX, scaleY);
     }
-
-    
 }

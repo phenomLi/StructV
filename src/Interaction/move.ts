@@ -1,20 +1,22 @@
 import { Interaction } from "./interaction";
+import { BoundingRect } from "../View/boundingRect";
+import { GlobalShape } from "../View/globalShape";
 
 
 
 export class Move extends Interaction {
     private enableMove: boolean = false;
-    private edgeOffset: number = 100;
+    private edgeOffsetX: number;
+    private edgeOffsetY: number;
 
     private curX: number;
     private curY: number;
-    private minX: number;
-    private maxX: number;
-    private minY: number;
-    private maxY: number;
     private containerWidth: number;
     private containerHeight: number;
-    private position: [number, number];
+
+    private viewWindow: BoundingRect = {
+        x: 0, y: 0, width: 0, height: 0
+    };
 
     private moveType: { hor: boolean, ver: boolean } = { hor: false, ver: false };
 
@@ -25,25 +27,18 @@ export class Move extends Interaction {
             globalShape = this.renderer.getGlobalShape();
             
         container.addEventListener('mousedown', (event: MouseEvent) => {
-            let globalBound = globalShape.getBound(),
-                [ scaleX, scaleY ] = globalShape.getScale(),
-                scaledWidth = globalBound.width * scaleX,
-                scaledHeight = globalBound.height * scaleY;
-
             this.containerWidth = this.renderer.getContainerWidth();
             this.containerHeight = this.renderer.getContainerHeight();
-            this.position = globalShape.getPosition();
-            this.minX = globalBound.x + this.position[0] + (scaledWidth - globalBound.width) / 2,
-            this.maxX = this.minX + scaledWidth,
-            this.minY = globalBound.y + this.position[1] + (scaledHeight - globalBound.height) / 2,
-            this.maxY = this.minY + scaledHeight;
+            this.edgeOffsetX = this.containerWidth / 4;
+            this.edgeOffsetY = this.containerHeight / 4;
+            this.viewWindow = this.generateViewWindow(globalShape);
             this.curX = event.clientX;
             this.curY = event.clientY;
 
-            if(this.minX < 0 || this.maxX > this.containerWidth) {
+            if(this.viewWindow.width > this.containerWidth) {
                 this.moveType.hor = true;
             }
-            if(this.minY < 0 || this.maxY > this.containerHeight) {
+            if(this.viewWindow.height > this.containerHeight) {
                 this.moveType.ver = true;
             }
 
@@ -77,42 +72,75 @@ export class Move extends Interaction {
 
         if(this.moveType.hor) {
             dx = param.x - this.curX;
-            this.minX += dx;
-            this.maxX += dx;
+            this.viewWindow.x += dx;
 
-            if(this.minX > this.edgeOffset) {
-                dx -= this.minX - this.edgeOffset;
-                this.minX = this.edgeOffset;
+            if(this.viewWindow.x > 0) {
+                this.viewWindow.x = 0;
+                dx = 0;
             }
-    
-            if(this.maxX < this.containerWidth - this.edgeOffset) {
-                dx -= this.maxX - (this.containerWidth - this.edgeOffset);
-                this.maxX = this.containerWidth - this.edgeOffset;
+
+            if(this.viewWindow.x < this.containerWidth - this.viewWindow.width) {
+                this.viewWindow.x = this.containerWidth - this.viewWindow.width;
+                dx = 0;
             }
         }
 
         if(this.moveType.ver) {
             dy = param.y - this.curY;
-            this.minY += dy;
-            this.maxY += dy;
+            this.viewWindow.y += dy;
 
-            if(this.minY > this.edgeOffset) {
-                dy -= this.minY - this.edgeOffset;
-                this.minY = this.edgeOffset;
+            if(this.viewWindow.y > 0) {
+                this.viewWindow.y = 0;
+                dy = 0;
             }
-    
-            if(this.maxY < this.containerHeight - this.edgeOffset) {
-                dy -= this.maxY - (this.containerHeight - this.edgeOffset);
-                this.maxY = this.containerHeight - this.edgeOffset;
+
+            if(this.viewWindow.y < this.containerHeight - this.viewWindow.height) {
+                this.viewWindow.y = this.containerHeight - this.viewWindow.height;
+                dy = 0;
             }
         }
 
         this.curX = param.x;
         this.curY = param.y;
-        this.renderer.lastCenter[0] += dx;
-        this.renderer.lastCenter[1] += dy;
 
         globalShape.translate(dx, dy);
+    }
+
+    /**
+     * 生成可移动视图窗口
+     * @param globalShape
+     */
+    generateViewWindow(globalShape: GlobalShape): BoundingRect {
+        let viewWindow = { x: 0, y: 0, width: this.containerWidth, height: this.containerHeight },
+            globalBound = globalShape.getBound(),
+            [ scaleX, scaleY ] = globalShape.getScale(),
+            [ positionX, positionY ] = globalShape.getPosition(),
+            scaledWidth = globalBound.width * scaleX,
+            scaledHeight = globalBound.height * scaleY,
+            minX = globalBound.x + positionX + (globalBound.width - scaledWidth) / 2,
+            maxX = minX + scaledWidth,
+            minY = globalBound.y + positionY + (globalBound.height - scaledHeight) / 2,
+            maxY = minY + scaledHeight;
+
+        if(minX < this.edgeOffsetX) {
+            viewWindow.x = minX - this.edgeOffsetX;
+            viewWindow.width += Math.abs(minX - this.edgeOffsetX);
+        }
+
+        if(maxX > this.containerWidth - this.edgeOffsetX) {
+            viewWindow.width += maxX - (this.containerWidth - this.edgeOffsetX);
+        }
+
+        if(minY < this.edgeOffsetY) {
+            viewWindow.y = minY - this.edgeOffsetY;
+            viewWindow.height += Math.abs(minY - this.edgeOffsetY);
+        }
+
+        if(maxY > this.containerHeight - this.edgeOffsetY) {
+            viewWindow.height += maxY - (this.containerHeight - this.edgeOffsetY);
+        }
+
+        return viewWindow;
     }
 
     /**

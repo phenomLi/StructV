@@ -61,7 +61,7 @@ export interface LayoutOption {
 // 交互配置项
 export interface InteractionOption {
     // 允许鼠标滚轮缩放视图
-    wheelScale: [number, number];
+    wheelScale: [number, number] | boolean;
     // 允许拖拽视图
     dragView: boolean;
 }
