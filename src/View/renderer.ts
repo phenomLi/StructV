@@ -7,6 +7,7 @@ import { GlobalShape } from "./globalShape";
 import * as zrender from './../lib/zrender.min';
 import { Bound, BoundingRect } from "./boundingRect";
 import { Animations } from "./animations";
+import { ResizeOption } from "../engine";
 
 
 
@@ -278,19 +279,29 @@ export class Renderer {
 
     /**
      * 重新整视图尺寸
+     * @param option
      * @param translate
      * @param scale
      */
-    resizeGlobalShape(translate: [number, number] | 'auto', scale: [number, number] | 'auto') {
+    resizeGlobalShape(option: ResizeOption, translate: [number, number] | 'auto', scale: [number, number] | 'auto') {
+        // 视图正在更新，不进行操作
         if(this.viewModel.isViewUpdating) return;
+
+        let targetWidth = option.width === 'auto'? this.container.offsetWidth: option.width,
+            targetHeight = option.height === 'auto'? this.container.offsetHeight: option.height;
+
+        // 容器尺寸没有发生变化，不执行操作
+        if(targetWidth === this.containerWidth && targetHeight === this.containerHeight) {
+            return;
+        }
 
         let position = this.globalShape.getPosition();
 
         this.viewModel.isViewUpdating = true;
-        this.containerWidth = this.container.offsetWidth;
-        this.containerHeight = this.container.offsetHeight;
+        this.containerWidth = targetWidth;
+        this.containerHeight = targetHeight;
 
-        this.zr.resize();
+        this.zr.resize(option);
 
         let newTranslate = [
             this.containerWidth / 2 - (this.lastCenter[0] + position[0]),

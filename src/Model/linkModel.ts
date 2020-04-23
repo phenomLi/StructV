@@ -166,8 +166,18 @@ export class LinkModel {
         });
 
         // 响应onLink钩子函数
-        element.onLinkTo(target, linkShape.style, linkName, sourceTarget);
-        target.onLinkFrom(element, linkShape.style, linkName, sourceTarget);
+        element.onLinkTo(target, {
+            style: linkShape.style, 
+            linkName, 
+            index,
+            label
+        });
+        target.onLinkFrom(element, {
+            style: linkShape.style, 
+            linkName, 
+            index,
+            label
+        });
     }
 
     /**

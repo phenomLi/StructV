@@ -14,7 +14,6 @@ import { Line } from "./SpecificShapes/line";
 import { Node } from "./SpecificShapes/node";
 import { DualNode } from "./SpecificShapes/dualNode";
 import { Curve } from "./Shapes/curve";
-import { TwoCellBlock } from "./SpecificShapes/twoCellBlock";
 import { Vector } from "./Common/vector";
 
 
@@ -35,7 +34,6 @@ RegisterShape(Curve, 'curve');
 RegisterShape(Line, 'line');
 RegisterShape(Node, 'node');
 RegisterShape(DualNode, 'dualNode');
-RegisterShape(TwoCellBlock, 'twoCellBlock');
 
 
 
@@ -59,11 +57,14 @@ export const SV = {
      * @param engineConstruct 
      * @param opt 
      */
-    create(container: HTMLElement, engineConstruct: { new(container: HTMLElement): Engine }, opt: Partial<EngineOption>): Engine {
+    create(container: HTMLElement, engineConstruct: { new(container: HTMLElement): Engine }, opt?: Partial<EngineOption>): Engine {
         engineConstruct['id'] = Util.generateId();
 
         let engine = new engineConstruct(container);
-        engine.applyOptions(opt);
+
+        if(opt) {
+            engine.applyOptions(opt);
+        }
 
         return engine;
     }

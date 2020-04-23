@@ -101,7 +101,8 @@ export class Shape {
         fontWeight: null,
         stroke: null,
         opacity: 1,
-        lineWidth: 1
+        lineWidth: 1,
+        transformText: true
     };
     // 图形配置项
     option: BaseOption = {

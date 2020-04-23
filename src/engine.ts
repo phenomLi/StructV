@@ -12,9 +12,7 @@ import { InteractionModel } from "./Interaction/interactionModel";
 
 
 
-/**
- * 注册一个可视化引擎所需的信息
- */
+// 注册一个可视化引擎所需的信息
 export interface EngineInfo {
     // 引擎名称
     name: string;
@@ -26,6 +24,11 @@ export interface EngineInfo {
     defaultOption: EngineOption;
 }
 
+// 进行容器尺寸调整时的配置项
+export interface ResizeOption {
+    width?: number | 'auto';
+    height?: number | 'auto';
+}
 
 
 export class Engine<S extends Sources = Sources, P extends EngineOption = EngineOption> {
@@ -264,8 +267,16 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     /**
      * 自动适应视图
      */
-    public resize() {
-        this.viewModel.renderer.resizeGlobalShape(this.layoutOption.translate, this.layoutOption.scale);
+    public resize(option?: ResizeOption) {
+        if(option === undefined) {
+            option = { width: 'auto', height: 'auto' };
+        }
+        else {
+            option.width = option.width || 'auto';
+            option.height = option.height || 'auto';
+        }
+
+        this.viewModel.renderer.resizeGlobalShape(option, this.layoutOption.translate, this.layoutOption.scale);
     }
 
 

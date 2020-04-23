@@ -4,6 +4,13 @@ import { LayoutOption } from '../option';
 import { BoundingRect, Bound } from '../View/boundingRect';
 
 
+export interface LinkInfo {
+    style: Style, 
+    linkName: string, 
+    index: number,
+    label: string
+}
+
 
 
 export class Element<T extends SourceElement = SourceElement> {
@@ -67,20 +74,16 @@ export class Element<T extends SourceElement = SourceElement> {
     /**
      * 当结点连接其他结点触发
      * @param targetEle 
-     * @param linkStyle
-     * @param linkName
-     * @param sourceTarget
+     * @param linkInfo
      */
-    onLinkTo(targetEle: Element, linkStyle: Style, linkName: string, sourceTarget: LinkData) {};
+    onLinkTo(targetEle: Element, linkInfo: LinkInfo) {};
 
     /**
      * 当结点被其他结点连接时触发
      * @param emitEle 
-     * @param linkStyle 
-     * @param linkName 
-     * @param sourceTarget 
+     * @param linkInfo
      */
-    onLinkFrom(emitEle: Element, linkStyle: Style, linkName: string, sourceTarget: LinkData) {};
+    onLinkFrom(emitEle: Element, linkInfo: LinkInfo) {};
 
     /**
      * 当结点断开与其他结点触发
