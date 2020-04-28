@@ -1,11 +1,10 @@
 import { Engine } from "../engine";
 import { Renderer } from "./renderer";
-import { Differ } from "./differ";
+import { Reconciler } from "./reconciler";
 import { LayoutOption } from "../option";
 import { Shape, mountState } from "../Shapes/shape";
 import { Util } from "../Common/util";
 import { Composite } from "../Shapes/composite";
-import { ElementContainer } from "../Model/dataModel";
 import { Text } from "../Shapes/text";
 
 
@@ -18,15 +17,11 @@ export type shapeContainer = {
 
 export class ViewModel {
     // 差异比较器
-    private differ: Differ;
+    private reconciler: Reconciler;
     // 主视图容器
-    private mainShapeContainer: shapeContainer = {};
-    // 当前视图容器
-    private curShapeContainer: shapeContainer = {};
+    private shapeContainer: shapeContainer = {};
     // 图形队列
     private shapeList: Shape[] = [];
-    // 持续的图形队列
-    private maintainShapeList: Shape[] = [];
     // 移除图形队列。需要移除的图形将被放进这个列表
     private removeList: Shape[] = [];
     // 布局配置项
@@ -37,13 +32,13 @@ export class ViewModel {
     public renderer: Renderer;
     // 是否正在执行视图更新
     public isViewUpdating: boolean = false;
+    // 是否首次渲染
+    public isFirstRender: boolean = true;
 
     constructor(private engine: Engine, container: HTMLElement) {
-        this.differ = new Differ();
+        this.reconciler = new Reconciler(this);
         this.layoutOption = engine.layoutOption;
         this.renderer = new Renderer(container, this, engine.animationOption);
-
-        this.curShapeContainer = this.mainShapeContainer;
     };
 
 
@@ -78,7 +73,7 @@ export class ViewModel {
 
         // 将图形加入图形管理器
         shape.renderer = this.renderer;
-        this.addShape(shape, shapeName);
+        this.shapeList.push(shape);
 
         // 若为文本类型，则先创建zrender图形实例
         if(shapeName === 'text' && shape.zrenderShape === null) {
@@ -110,17 +105,16 @@ export class ViewModel {
     /**
      * 将图形加入到view
      * @param shape 
-     * @param listName
      */
-    addShape(shape: Shape, listName: string) {
-        let shapeContainer = this.curShapeContainer;
+    addShape(shape: Shape) {
+        let shapeContainer = this.shapeContainer,
+            name = shape.name;
             
-        if(shapeContainer[listName] === undefined) {
-            shapeContainer[listName] = [];
+        if(shapeContainer[name] === undefined) {
+            shapeContainer[name] = [];
         }
 
-        shapeContainer[listName].push(shape);
-        this.shapeList.push(shape);
+        shapeContainer[name].push(shape);
     }
 
     /**
@@ -130,12 +124,12 @@ export class ViewModel {
      */
     removeShape(shape: Shape) {
         // 从shapeContainer中移除图形
-        Util.removeFromList<Shape>(this.curShapeContainer[shape.name], item => item.id === shape.id);
+        Util.removeFromList<Shape>(this.shapeContainer[shape.name], item => item.id === shape.id);
         // 更改图形挂载状态为需卸载
         shape.mountState = mountState.NEEDUNMOUNT;
 
-        if(this.curShapeContainer[shape.name].length === 0) {
-            delete this.curShapeContainer[shape.name];
+        if(this.shapeContainer[shape.name].length === 0) {
+            delete this.shapeContainer[shape.name];
         }
 
         this.removeList.push(shape);
@@ -159,11 +153,11 @@ export class ViewModel {
      */
     private reuseShape(id: string, shapeName: string, opt): Shape {
         // 若图形容器中根本没有这个类型的图形，则表明不能复用
-        if(this.mainShapeContainer[shapeName] === undefined) {
+        if(this.shapeContainer[shapeName] === undefined) {
             return null;
         }
 
-        let existShape = this.mainShapeContainer[shapeName].find(item => item.id === id);
+        let existShape = this.shapeContainer[shapeName].find(item => item.id === id);
 
         // 若找到复用的图形
         if(existShape) {
@@ -183,81 +177,93 @@ export class ViewModel {
     }
 
     /**
-     * 布局view
-     * @param elements 
-     * @param layoutFn 
+     * 进行 shape 的调和（即 differ + patch） 
+     * @param reconcileShapeOnly
      */
-    layoutElements(elements: ElementContainer | Element[], layoutFn: Function) {
-        if(Object.keys(elements).length === 1 && elements['element']) {
-            elements = elements['element'];
-        }
+    reconciliation(reconcileShapeOnly: boolean = false) {
+        // 更新复合图形
+        this.updateComposite();
 
-        // 调用自定义布局函数
-        layoutFn(elements, this.renderer.getContainerWidth(), this.renderer.getContainerHeight());
+        if(reconcileShapeOnly) {
+            for(let i = 0; i < this.shapeList.length; i++) {
+                this.reconciler.reconcileShape(this.shapeList[i], this.shapeList[i]);
+            }
+        }
+        else {
+            if(this.isFirstRender) {
+                this.shapeList.forEach(item => {
+                    this.addShape(item);
+                });
+            }
+            else {
+                // 对图形容器进行 differ 调和
+                this.reconciler.reconcileShapeList(this.shapeContainer, this.shapeList);
+            }
+        }
     }
 
     /**
-     * 渲染view
+     * 渲染 view
+     * @param updateViewOnly
      */
-    renderShapes() {
-        // 更新所有复合图形
-        this.updateComposite();
-
-        // 如果进行这次更新时上次更新还未完成，跳过上次更新的动画
-        if(this.isViewUpdating) {
-            this.renderer.skipUpdateZrenderShapes(() => {
-                this.afterUpdate.call(this);
-            });
-        }
-
-        if(this.curShapeContainer !== this.mainShapeContainer) {
-            // 对图形容器进行differ
-            let patchList = this.differ.differShapeContainer(this.mainShapeContainer, this.curShapeContainer);
-
-            this.curShapeContainer = this.mainShapeContainer;
-            // 对图形容器进行patch
-            this.differ.patch(this, patchList);
-        }
-
-        this.isViewUpdating = true;
+    renderShapes(updateViewOnly: boolean = false) {
+        // 开始更新钩子
         this.beforeUpdate();
-        // 渲染zrender图形实例
-        this.renderer.renderZrenderShapes(this.mainShapeContainer, this.removeList);
-        // 调整视图
-        this.renderer.adjustGlobalShape(this.layoutOption.translate, this.layoutOption.scale);
-        // 更新zrender图形实例
+        
+        // 若不是只单纯地更新视图某个元素（涉及结构变化），需要进行下面步骤
+        if(updateViewOnly === false) {
+            // 如果进行这次更新时上次更新还未完成，跳过上次更新的动画
+            if(this.isViewUpdating) {
+                this.renderer.skipUpdateZrenderShapes(() => {
+                    this.afterUpdate.call(this);
+                });
+            }
+
+            this.isViewUpdating = true;
+
+            // 渲染（创建和销毁） zrender 图形实例
+            this.renderer.renderZrenderShapes(this.shapeContainer, this.removeList);
+            // 调整视图
+            this.renderer.adjustGlobalShape(this.layoutOption.translate, this.layoutOption.scale);
+        }
+
+        // 更新 zrender 图形实例
         this.renderer.updateZrenderShapes(() => {
             this.afterUpdate.call(this);
         });
 
-        //console.log(this.mainShapeContainer);
+        // 将所有脏图形重置
+        this.shapeList.forEach(item => {
+            item.isDirty = false;
+        });
+
+        // 取消首次渲染的标志
+        if(this.isFirstRender) {
+            this.isFirstRender = false;
+        }
+
+        // console.log(this.shapeContainer);
     }
 
 
     /**
-     * 重置上一次的数据，包括：
-     * - shape的visited状态
-     * - tempShapeContainer保存的内容
+     * 重置上一次的数据
      */
     resetData() {
-        Object.keys(this.mainShapeContainer).map(shapeList => {
-            this.mainShapeContainer[shapeList].map((shape: Shape) => shape.visited && (shape.visited = false));
+        Object.keys(this.shapeContainer).map(shapeList => {
+            this.shapeContainer[shapeList].map((shape: Shape) => shape.visited && (shape.visited = false));
         });
 
-        this.maintainShapeList = this.shapeList;
-
         this.staticTextId = 0;
-        this.shapeList = [];
+        this.shapeList.length = 0;
         this.removeList.length = 0;
-        this.curShapeContainer = {};
     }
 
     /**
      * 清空所有图形
      */
-    clearShape() {
-        this.curShapeContainer = {};
-        this.mainShapeContainer = {};
+    clearShapes() {
+        this.shapeContainer = {};
         this.shapeList.length = 0;
         this.removeList.length = 0;
         this.renderer.clear();
@@ -267,7 +273,7 @@ export class ViewModel {
      * 获取图形队列
      */
     getShapeList(): Shape[] {
-        return this.shapeList.length? this.shapeList: this.maintainShapeList;
+        return this.shapeList;
     }
 
     // ----------------------------------------------------------------

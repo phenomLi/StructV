@@ -3,6 +3,7 @@ import { Util } from "../Common/util";
 import { BoundingRect, Bound } from "../View/boundingRect";
 import { anchorSet } from "../Model/linkModel";
 import { BaseShapeOption } from "../option";
+import { Element } from "../Model/element";
 
  
 export interface BaseOption {
@@ -82,6 +83,8 @@ export class Shape {
     height: number = 0;
     // 样式
     style: Style = null;
+    // 是否可拖拽
+    draggable: boolean = false;
 
     prevX: number = 0;
     prevY: number = 0;
@@ -117,8 +120,12 @@ export class Shape {
     parentShape: Shape = null;
     // 是否访问过（用于differ）
     visited: boolean = false;
+    // 是否为脏（即被修改过，需要更新）
+    isDirty: boolean = false;
     // 挂载状态（默认为需挂载NEEDMOINT）
     mountState: number = mountState.NEEDMOUNT;
+    // 关联的 element
+    element: Element = null;
     
     // 动画表
     animationsTable: { [key: string]: string } = {
@@ -135,6 +142,7 @@ export class Shape {
         this.name = name;
         this.option = this.defaultOption(this.option);
         this.style = this.defaultStyle(this.baseStyle);
+        this.prevStyle = this.defaultStyle(this.baseStyle);
 
         this.applyShapeOption(opt);
     };
@@ -188,14 +196,6 @@ export class Shape {
      * 重置所有可变属性
      */
     restoreData() {
-        this.prevX = this.x;
-        this.prevY = this.y;
-        this.prevRotation = this.rotation;
-        this.prevVisible = this.visible;
-        this.prevWidth = this.width;
-        this.prevHeight = this.height;
-        this.prevStyle = this.style;
-
         this.x = 0;
         this.y = 0;
         this.rotation = 0;
@@ -278,8 +278,9 @@ export class Shape {
      * 更新zrender图形
      * @param name 
      * @param animation
+     * @param fn
      */
-    updateZrenderShape(name: string, animation: boolean = false, fn?: Function) {
+    updateZrenderShape(name: string, animation?: boolean, fn?: Function) {
         if(this.zrenderShape === null) return;
 
         let props = this.renderer.getAnimationProps(this, this.animationsTable[name]);

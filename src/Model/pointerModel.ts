@@ -12,6 +12,7 @@ export interface PointerPair {
     id: string;
     pointerShape: Line;
     label: string;
+    labelShapes: Text[];
     target: Element;
     pointerName: string;
     branchPairs: PointerPair[];
@@ -56,6 +57,13 @@ export class PointerModel {
                 this.addPointerPair(ele, pointerName, ele[pointerName]);
             }
         });
+
+        // 初始化所有外部指针的开始/结束位置
+        this.initRefersPos();
+        // 处理被取消指向的外部指针
+        this.applyCanceledRefer(elementList);
+        // 将该批次指针队列设为上一批指针队列
+        this.lastPointerPairs = this.pointerPairs;
     }
 
     /**
@@ -65,19 +73,33 @@ export class PointerModel {
      * @param label
      */
     addPointerPair(targetElement: Element, pointerName: string, label: string | string[]) {
-        let id, pointerShape;
+        let pointerOption = this.layoutOption.pointer[pointerName],
+            pointerShape = null,
+            labelShape = null,
+            id = null;
 
         if(Array.isArray(label)) {
             id = pointerName + '#' + label[0];
             pointerShape = this.viewModel.createShape(id, 'line', this.pointerOptions[pointerName]) as Line;
 
-            let branchPairs: PointerPair[] = label.map(item => {
+            const branchPairs: PointerPair[] = label.map(item => {
+                labelShape = this.viewModel.createShape(
+                    pointerName + '-' + item + '-text', 
+                    'text', 
+                    { 
+                        style: pointerOption.labelStyle,
+                        content: item,
+                        show: pointerOption.show 
+                    }
+                ) as Text;
+
                 targetElement.onRefer(pointerShape.style, pointerName, item);
 
                 return {
                     id: pointerName + '#' + item + '-' + targetElement.elementId,
                     pointerShape: null,
                     label: item,
+                    labelShapes: [labelShape],
                     target: targetElement,
                     pointerName,
                     branchPairs: null,
@@ -89,22 +111,39 @@ export class PointerModel {
             branchPairs.map(item => (item.masterPair = masterPair));
             masterPair.branchPairs = branchPairs;
             masterPair.pointerShape = pointerShape;
+            branchPairs.forEach(item => {
+                masterPair.labelShapes = masterPair.labelShapes.concat(item.labelShapes);
+            });
 
             this.pointerPairs.push(masterPair, ...branchPairs);
+            targetElement.effectRefer = masterPair;
         }
         else {
-            id = pointerName + '#' + label + '-' + targetElement.elementId;
+            id = pointerName + '#' + label;
             pointerShape = this.viewModel.createShape(id, 'line', this.pointerOptions[pointerName]) as Line;
+            labelShape = this.viewModel.createShape(
+                pointerName + '-' + label + '-text', 
+                'text', 
+                { 
+                    style: pointerOption.labelStyle,
+                    content: label,
+                    show: pointerOption.show 
+                }
+            ) as Text;
 
-            this.pointerPairs.push({
+            let pointerPair = {
                 id,
                 pointerShape,
                 label,
+                labelShapes: [labelShape],
                 target: targetElement,
                 pointerName,
                 branchPairs: null,
                 masterPair: null
-            });
+            }
+
+            this.pointerPairs.push(pointerPair);
+            targetElement.effectRefer = pointerPair;
 
             targetElement.onRefer(pointerShape.style, pointerName, label);
         }
@@ -115,98 +154,102 @@ export class PointerModel {
      * @param elementList 
      */
     emitPointerShapes(elementList: Element[]) {
-        this.applyCanceledRefer(elementList);
-
         // 遍历指针对队列，进行元素的指针绑定
-        for(let i = 0; i < this.pointerPairs.length; i++) {
-            this.referElement(this.pointerPairs[i]);
-        }
+        for(let i = 0; i < elementList.length; i++) {
+            if(elementList[i].effectRefer) {
+                let pointerPair = elementList[i].effectRefer;
 
-        this.lastPointerPairs = this.pointerPairs;
+                this.updateRefer(pointerPair);
+
+                pointerPair.pointerShape.isDirty = true;
+                pointerPair.labelShapes.forEach(item => {
+                    item.isDirty = true;
+                });
+            }
+        }
     }
 
     /**
-     * 外部指针指向某结点
-     * @param pointerPair
+     * 初始化外部指针的坐标
      */
-    private referElement(pointerPair: PointerPair) {
+    private initRefersPos() {
+        // 由字符串方向（top，left，bottom，right）映射到锚点的表
+        // 主要为外部指针所用
+        const directionMapAnchor = {
+            top: (w, h, o) => [0, -(h / 2) - o],
+            right: (w, h, o) => [w / 2 + o, 0],
+            bottom: (w, h, o) => [0, h / 2 + o],
+            left: (w, h, o) => [-(w / 2) - o, 0]
+        };
+
+        for(let i = 0; i < this.pointerPairs.length; i++) {
+            let pointerPair = this.pointerPairs[i];
+
+            // 需要被合并的指针，跳过不处理
+            if(pointerPair.masterPair) {
+                continue;
+            }
+
+            let pointerName = pointerPair.pointerName,
+                pointerOption = this.layoutOption.pointer[pointerName],
+                target = pointerPair.target,
+                pointerShape = pointerPair.pointerShape,
+                labelShapes = pointerPair.labelShapes,
+                labelInterval = pointerOption.labelInterval;
+                
+            let x = target.x, 
+                y = target.y, 
+                w = target.width, 
+                h = target.height, 
+                r = target.rotation,
+                anchor = directionMapAnchor[pointerOption.position || 'top'] as anchor,
+                start = Util.anchor2position(x, y, w, h, r, anchor, pointerOption.offset + pointerOption.length),
+                end = Util.anchor2position(x, y, w, h, r, anchor, pointerOption.offset);
+
+            pointerShape.start.x = start[0];
+            pointerShape.start.y = start[1];
+            pointerShape.end.x = end[0];
+            pointerShape.end.y = end[1];
+
+            let curX = 0;
+    
+            labelShapes.map((label: Text, index) => {
+                let dirSign = pointerOption.position === 'left'? -1: 1,
+                    offset = index === 0? 2: 0 
+    
+                label.y = start[1];
+                label.x = start[0] + dirSign * (curX + labelInterval + offset);
+    
+                curX = curX + label.width + labelInterval + offset;
+            });
+        }
+    }
+
+    /**
+     * 更新外部指针的位置
+     * @param pointerPair 
+     * @param dPos
+     */
+    private updateRefer(pointerPair: PointerPair) {
         // 需要被合并的指针，跳过不处理
         if(pointerPair.masterPair) {
             return;
         }
 
-        let pointerName = pointerPair.pointerName,
-            pointerOption = this.layoutOption.pointer[pointerName],
-            pointerLabel = pointerPair.label,
-            target = pointerPair.target,
-            labelStyle = pointerOption.labelStyle,
-            pointerShape = pointerPair.pointerShape,
-            branchPairs = pointerPair.branchPairs,
+        let pointerShape = pointerPair.pointerShape,
+            labelShapes = pointerPair.labelShapes,
+            targetElement = pointerPair.target,
+            dx = targetElement.x - targetElement.lastX,
+            dy = targetElement.y - targetElement.lastY;
 
-            labelShapes = [],
-            labelInterval = pointerOption.labelInterval,
-            // 由字符串方向（top，left，bottom，right）映射到锚点的表
-            // 主要为外部指针所用
-            directionMapAnchor = {
-                top: (w, h, o) => [0, -(h / 2) - o],
-                right: (w, h, o) => [w / 2 + o, 0],
-                bottom: (w, h, o) => [0, h / 2 + o],
-                left: (w, h, o) => [-(w / 2) - o, 0]
-            };
+        pointerShape.start.x += dx;
+        pointerShape.start.y += dy;
+        pointerShape.end.x += dx;
+        pointerShape.end.y += dy;
 
-        if(branchPairs) {
-            let labels = [pointerLabel, ...branchPairs.map(item => item.label)];
-
-            labelShapes = labels.map(label => {
-                return this.viewModel.createShape(
-                    pointerName + '-' + label + '-text', 
-                    'text', 
-                    { 
-                        style: labelStyle, 
-                        content: label,
-                        show: pointerOption.show 
-                    }
-                );
-            });
-        }
-        else {
-            let shape = this.viewModel.createShape(
-                pointerName + '-' + pointerLabel + '-text', 
-                'text', 
-                { 
-                    style: labelStyle, 
-                    content: pointerLabel,
-                    show: pointerOption.show 
-                }
-            );
-            labelShapes.push(shape);
-        }
-
-        
-        let x = target.x, 
-            y = target.y, 
-            w = target.width, 
-            h = target.height, 
-            r = target.rotation,
-            anchor = directionMapAnchor[pointerOption.position || 'top'] as anchor,
-            start = Util.anchor2position(x, y, w, h, r, anchor, pointerOption.offset + pointerOption.length),
-            end = Util.anchor2position(x, y, w, h, r, anchor, pointerOption.offset);
-
-        pointerShape.start.x = start[0];
-        pointerShape.start.y = start[1];
-        pointerShape.end.x = end[0];
-        pointerShape.end.y = end[1];
-
-        let curX = 0;
-
-        labelShapes.map((label: Text, index) => {
-            let dirSign = pointerOption.position === 'left'? -1: 1,
-                offset = index === 0? 2: 0 
-
-            label.y = start[1];
-            label.x = start[0] + dirSign * (curX + labelInterval + offset);
-
-            curX = curX + label.width + labelInterval + offset;
+        labelShapes.map((label: Text) => {
+            label.x += dx;
+            label.y += dy;
         });
     }
 

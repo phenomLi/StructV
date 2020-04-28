@@ -1,6 +1,7 @@
-import { Element } from "../Model/element";
 import { Renderer } from "../View/renderer";
 import { InteractionModel } from "./interactionModel";
+import { Engine } from "../engine";
+import { Element } from "../Model/element";
 
 
 
@@ -9,26 +10,41 @@ import { InteractionModel } from "./interactionModel";
  */
 export class Interaction {
     protected interactionModel: InteractionModel;
-    protected elementList: Element[] = [];
+    protected elementList: Element[];
+    protected engine: Engine;
     protected renderer: Renderer;
+    protected container: HTMLElement;
+    protected isEnable: boolean;
 
-    constructor(interactionModel: InteractionModel, elementList: Element[], renderer: Renderer) {
+    public optionValue: any = null;
+
+    constructor(interactionModel: InteractionModel, engine: Engine) {
         this.interactionModel = interactionModel;
-        this.elementList = elementList;
-        this.renderer = renderer;
+        this.engine = engine;
+        this.elementList = engine.getElementList();
+        this.renderer = engine.getRenderer();
+        this.container = this.renderer.getContainer();
+
+        this.isEnable = true;
     }
 
     /**
-     * 交互条件初始化
+     * 根据配置值应用交互
      * @param optionValue
      */
-    init(optionValue: any) { }
+    apply(optionValue: any) { }
+
+    /**
+     * 根据配置值更新交互
+     * @param optionValue 
+     */
+    update(optionValue: any) { }
 
     /**
      * 响应交互
      * @param param 
      */
-    response(param: any) { }
+    response(param: any): Element[] | void { }
 
     /**
      * 处理交互
@@ -36,9 +52,27 @@ export class Interaction {
      */
     handle(param: any) {
         // 正在更新视图时不执行
-        if(this.interactionModel.viewModel.isViewUpdating === false) {
-            this.response(param);
-            this.renderer.updateZrenderShapes();
+        if(this.engine.isViewUpdating() === false) {
+            let dirtyElements = this.response(param);
+            this.engine.updateElement(dirtyElements || []);
         }
+    }
+
+    /**
+     * 响应事件
+     * @param eventName 
+     * @param param 
+     */
+    emitEvent(eventName: string, ...param: any[]) {
+        if(this.isEnable) {
+            this[eventName](...param);
+        }
+    }
+
+    /**
+     * 关闭交互
+     */
+    disable() {
+        this.isEnable = true;
     }
 }

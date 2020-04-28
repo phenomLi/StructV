@@ -64,6 +64,12 @@ export interface InteractionOption {
     wheelScale: [number, number] | boolean;
     // 允许拖拽视图
     dragView: boolean;
+    // 允许鼠标拖拽元素
+    drag: boolean | string[];
+    // 允许鼠标 hover 元素
+    hover: { [key: string]: () => BaseShapeOption };
+    // 允许鼠标 点击元素
+    focus: { [key: string]: () => BaseShapeOption };
 }
 
 // 动画配置项

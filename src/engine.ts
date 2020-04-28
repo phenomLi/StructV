@@ -9,6 +9,8 @@ import { Group } from "./Model/group";
 import { anchor } from "./Model/linkModel";
 import { SourcesProxy } from "./Model/sourcesProxy";
 import { InteractionModel } from "./Interaction/interactionModel";
+import { Text } from "./Shapes/text";
+import { Renderer } from "./View/renderer";
 
 
 
@@ -36,6 +38,8 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     private id: string;
     // 引擎名称
     public name: string = 'framework';
+    // 当前保存的源数据
+    private sources: S = null;
     // 序列化的源数据
     private stringifySources: string = null;
     // 数据模型控制器
@@ -46,6 +50,8 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     private interactionModel: InteractionModel = null;
     // 源数据代理器
     private sourcesProxy: SourcesProxy = null;
+    // 上一次输入的序列化之后的配置项
+    private lastStringifyOptions: string = null;
 
     // Element构造函数容器，用作存放该引擎扩展的Element
     ElementsTable: { [key: string]: { new(sourceElement: SourceElement): Element } } = {};
@@ -105,25 +111,66 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
 
         this.viewModel = new ViewModel(this, container);
         this.dataModel = new DataModel(this, this.viewModel);
-        this.interactionModel = new InteractionModel(this.dataModel, this.viewModel);
+        this.interactionModel = new InteractionModel(this);
         this.sourcesProxy = new SourcesProxy(this);
 
-        // 初始化交互模块
+        // 根据配置应用交互模块
         if(this.interactionOption) {
-            this.interactionModel.initInteractions(this.interactionOption);
+            this.interactionModel.applyInteractions(this.interactionOption);
         }
     }
 
     /**
      * 重置数据
-     * @param sources
-     * @param stringifySources
      */
-    private reset(stringifySources: string) {
+    private reset() {
         this.dataModel.resetData();
         this.viewModel.resetData();
+    }
 
-        this.stringifySources = stringifySources;
+
+    /**
+     * 整个引擎的主更新函数（发生结构改变）
+     * @param sources 
+     */
+    private updateEngine(sources: S) {
+        // 重置数据
+        this.reset();
+
+        // 建立元素间逻辑关系
+        this.dataModel.constructElements(sources);
+        // 根据逻辑关系布局元素
+        this.dataModel.layoutElements(
+            this.render.bind(this), 
+            this.viewModel.renderer.getContainerWidth(),
+            this.viewModel.renderer.getContainerHeight()
+        );
+        // 根据绑定更新图形
+        this.dataModel.updateShapes();
+        // 对图形进行调和
+        this.viewModel.reconciliation();
+        // 根据图形渲染视图
+        this.viewModel.renderShapes();
+    }
+
+    /**
+     * 若干个 element 的更新函数（不发生结构改变）
+     * @param elements 
+     * @param enableAnimation 
+     */
+    public updateElement(elements: Element[], enableAnimation: boolean = false) {
+        let defaultAnimation: boolean = this.animationOption.enableAnimation;
+
+        this.animationOption.enableAnimation = enableAnimation;
+
+        // 根据绑定更新图形
+        this.dataModel.updateShapes(elements);
+        // 对被修改的 shape 进行 differ 和 patch
+        this.viewModel.reconciliation(true);
+        // 更新 zrender 图形实例
+        this.viewModel.renderShapes(true);
+
+        this.animationOption.enableAnimation = defaultAnimation;
     }
 
     /**
@@ -132,7 +179,7 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
      * @param sources 
      * @param proxySources
      */
-    public source(sources: S, proxySources: boolean = false): void | S {
+    public source(sources?: S, proxySources: boolean = false): void | S {
         // 如果正在执行视图更新，则取消该次动作（避免用户频繁点击）
         if(!this.animationOption.enableSkip && this.viewModel.isViewUpdating) {
             return;
@@ -145,24 +192,14 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
         // 若前后数据没有发生变化，什么也不干（将json字符串化后比较）
         let stringifySources = JSON.stringify(sources);
         if(stringifySources === this.stringifySources) return;
+        this.sources = sources;
+        this.stringifySources = stringifySources;
 
         // ------------------- 可视化主流程 ---------------------
 
-        // 建立元素间逻辑关系
-        this.dataModel.constructElements(sources);
-        // 根据逻辑关系将元素绑定图形
-        this.dataModel.bindShapes();
-        // 根据逻辑关系布局元素
-        this.viewModel.layoutElements(this.dataModel.getElements(), this.render.bind(this));
-        // 根据绑定更新图形
-        this.dataModel.emitShapes();
-        // 根据图形渲染视图
-        this.viewModel.renderShapes();
+        this.updateEngine(sources);
 
         // ---------------------------------------------------
-
-        // 重置数据
-        this.reset(stringifySources);
 
         // 若关闭源数据代理且之前代理过的，则取消上次代理
         if(proxySources === false && this.proxySources) {
@@ -181,12 +218,37 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
      * @param opt 
      */
     public applyOptions(opt: P) {
+        // 配置项为 null 或为空对象不执行更新
         if(!opt || Object.keys(opt).length === 0) return;
 
+        let lastStringifyOptions = JSON.stringify(opt);
+        // 若这次的配置项和上一次的配置项一样，不执行更新
+        if(this.lastStringifyOptions && this.lastStringifyOptions === lastStringifyOptions) {
+            return;
+        }
+
+        if(typeof this.elementsOption === 'string') {
+            this.elementsOption = opt['element'];
+        }
+        else {
+            Util.merge(this.elementsOption, opt['element']);
+        }
+
         Util.merge(this.animationOption, opt['animation']);
-        Util.merge(this.elementsOption, opt['element']);
         Util.merge(this.interactionOption, opt['interaction']);
         Util.extends(this.layoutOption, opt['layout']);
+
+        //  修改配置后，更新一次视图
+        if(this.sources) {
+            this.updateEngine(this.sources);
+        }
+
+        // 根据配置应用交互模块
+        if(this.interactionOption) {
+            this.interactionModel.applyInteractions(this.interactionOption);
+        }
+
+        this.lastStringifyOptions = lastStringifyOptions;
     }
 
     /**
@@ -195,13 +257,27 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     public clear() {
         this.dataModel.resetData();
         this.viewModel.resetData();
-        this.viewModel.clearShape();
+        this.viewModel.clearShapes();
 
         this.stringifySources = null;
         if(this.proxySources) {
             this.sourcesProxy.revoke(this.proxySources);
             this.proxySources = null;
         }
+    }
+
+    /**
+     * 获取渲染器
+     */
+    public getRenderer(): Renderer {
+        return this.viewModel.renderer;
+    }
+
+    /**
+     * 获取 dataModel 的 element 队列
+     */
+    public getElementList(): Element[] {
+        return this.dataModel.getElementList();
     }
 
     /**
@@ -216,6 +292,13 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
      */
     public getName(): string {
         return this.name;
+    }
+
+    /**
+     * 是否正在进行视图更新
+     */
+    public isViewUpdating(): boolean {
+        return this.viewModel.isViewUpdating;
     }
 
     /**

@@ -1,10 +1,11 @@
-import { ViewModel } from "../View/viewModel";
-import { Renderer } from "../View/renderer";
-import { DataModel } from "../Model/dataModel";
 import { Interaction } from "./interaction";
 import { InteractionOption } from "../option";
 import { Zoom } from "./zoom";
 import { Move } from "./move";
+import { Drag } from "./drag";
+import { Hover } from "./hover";
+import { Focus } from "./focus";
+import { Engine } from "../engine";
 
 
 
@@ -13,43 +14,57 @@ import { Move } from "./move";
  * 交互管理器
  */
 export class InteractionModel {
-    dataModel: DataModel;
-    viewModel: ViewModel;
-    renderer: Renderer;
-
+    private engine: Engine;
     private dataStore: { [key: string]: any } = {};
 
     // 从交互配置项映射至交互模块的表
-    private interactionMap: { [key in keyof InteractionOption]: { new(...arg): Interaction} } = {
+    private interactionConstructorMap: { [key in keyof InteractionOption]: { new(...arg): Interaction} } = {
         wheelScale: Zoom,
-        dragView: Move
+        dragView: Move,
+        drag: Drag,
+        hover: Hover,
+        focus: Focus
     };
 
-    constructor(dataModel: DataModel, viewModel: ViewModel) {
-        this.dataModel = dataModel;
-        this.viewModel = viewModel;
-        this.renderer = this.viewModel.renderer;
+    public interactionMap: { [key: string]: Interaction } = {};
+    
+    constructor(engine: Engine) {
+        this.engine = engine;
     }
 
     /**
-     * 初始化所有交互模块
+     * 开启交互模块
      * @param interactionOption
      */
-    initInteractions(interactionOption: InteractionOption) {
+    applyInteractions(interactionOption: InteractionOption) {
         Object.keys(interactionOption).map(key => {
-            this.register(key, interactionOption[key]);
+            if(!interactionOption[key]) {
+                if(this.interactionMap[key]) {
+                    this.interactionMap[key].disable();
+                    delete this.interactionMap[key];
+                }
+                return;
+            }
+
+            if(this.interactionMap[key] === undefined) {
+                let interactionConstructor = this.interactionConstructorMap[key],
+                    interaction = new interactionConstructor(this, this.engine);
+
+                this.interactionMap[key] = interaction;
+                requestAnimationFrame(() => interaction.apply(interactionOption[key]));
+            }
+            else {
+                this.interactionMap[key].update(interactionOption[key]);
+            }
         });
     }
 
     /**
-     * 注册一个交互模块
-     * @param optionValue
+     * 获取交互模块
+     * @param interactionName 
      */
-    register(interactionName: string, optionValue: any) {
-        let interactionConstructor = this.interactionMap[interactionName],
-            interaction = new interactionConstructor(this, this.dataModel.getElementList(), this.renderer);
-        
-        interaction.init(optionValue);
+    getInteraction(interactionName: string): Interaction {
+        return this.interactionMap[interactionName];
     }
 
     /**

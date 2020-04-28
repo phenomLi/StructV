@@ -27,11 +27,16 @@ export class Renderer {
     // 全局图形容器
     public globalShape: GlobalShape;
     // 配置项
-    private option: AnimationOption;
+    private animationOption: AnimationOption;
     // 动画表
     private animations: Animations;
     // 需使用动画更新的zrender属性的队列
     private animatePropsQueue: {
+        zrenderShape: zrenderShape,
+        props: { [key: string]: any }
+    }[] = [];
+    // 上一批需使用动画更新的zrender属性的队列
+    private lastAnimatePropsQueue: {
         zrenderShape: zrenderShape,
         props: { [key: string]: any }
     }[] = [];
@@ -49,8 +54,6 @@ export class Renderer {
     private containerHeight: number;
     // 上一次更新是否被该次打断
     private isLastUpdateInterrupt: boolean = false;
-    // 是否首次渲染
-    private firstRender: boolean = true;
     // 上一次视图的真实中心（不考虑 position）
     public lastCenter: [number, number];
 
@@ -60,7 +63,7 @@ export class Renderer {
         this.animations = new Animations(opt);
         this.globalShape = new GlobalShape(this);
         this.globalShape.setOrigin(container.offsetWidth / 2, container.offsetHeight / 2);
-        this.option = opt;
+        this.animationOption = opt;
 
         this.container = container;
         this.containerWidth = container.offsetWidth;
@@ -75,12 +78,12 @@ export class Renderer {
      * @param props
      * @param animation
      */
-    setAttribute(zrenderShape, props, animation: boolean = false) {
-        let queue = animation? this.animatePropsQueue: this.propsQueue;
-
-        if(!this.option.enableAnimation) {
-            queue = this.propsQueue;
+    setAttribute(zrenderShape, props, animation: boolean) {
+        if(animation === undefined) {
+            animation = this.animationOption.enableAnimation;
         }
+
+        let queue = animation? this.animatePropsQueue: this.propsQueue;
 
         let item = queue.find(item => zrenderShape.id === item.zrenderShape.id);
 
@@ -122,16 +125,19 @@ export class Renderer {
                     }
                     // 将图形加入到全局图形容器
                     this.globalShape.add(shape);
-                    // 设置叠层优先级
-                    shape.zrenderShape.attr('z', shape.option.zIndex);
                     // 在图形加入容器后，设置为隐藏，为淡入淡出动画做铺垫
-                    shape.updateZrenderShape('hide');
+                    shape.updateZrenderShape('hide', false);
                     // 修改挂载状态为已挂载
                     shape.mountState = mountState.MOUNTED;
                     // 设置图形可见性
                     shape.visible = true;
-                    shape.updateZrenderShape('show', true);
+                    // 在 zrender 图形上记录该图形
+                    shape.zrenderShape.svShape = shape;
+                    shape.updateZrenderShape('show');
                 }
+
+                // 设置叠层优先级
+                shape.zrenderShape.attr('z', shape.option.zIndex);
             }
         });
 
@@ -179,7 +185,7 @@ export class Renderer {
 
             this.propsQueue.length = 0;
 
-            if(this.option.enableAnimation === false) {
+            if(this.animationOption.enableAnimation === false) {
                 this.viewModel.isViewUpdating = false;
                 callback && callback();
             }
@@ -187,22 +193,26 @@ export class Renderer {
 
         setTimeout(() => {
             if(this.animatePropsQueue.length) {
-                let queueLength = this.animatePropsQueue.length,
+                this.lastAnimatePropsQueue = this.animatePropsQueue;
+                this.animatePropsQueue = [];
+
+                let queue = this.lastAnimatePropsQueue,
+                    queueLength = queue.length,
                     counter = 0;
 
                 // 遍历动画属性列表，执行动画
-                this.animatePropsQueue.map(item => {
+                queue.map(item => {
                     item.zrenderShape.animateTo(
                         item.props, 
-                        this.option.duration, 
-                        this.option.timingFunction, 
+                        this.animationOption.duration, 
+                        this.animationOption.timingFunction, 
                         () => {
                             counter++;
 
                             // 所有动画结束，触发afterUpadte回调事件
                             if(counter === queueLength && this.isLastUpdateInterrupt === false) {
                                 this.viewModel.isViewUpdating = false;
-                                this.animatePropsQueue.length = 0;
+                                queue.length = 0;
                                 callback && callback();
                             }
 
@@ -212,11 +222,6 @@ export class Renderer {
                 });
             }
         }, 0);
-
-        // 取消首次渲染的标志
-        if(this.firstRender) {
-            this.firstRender = false;
-        }
     }
 
     /**
@@ -224,11 +229,11 @@ export class Renderer {
      * @param callback 
      */
     skipUpdateZrenderShapes(callback?: () => void) {
-        if(this.animatePropsQueue.length) {
+        if(this.lastAnimatePropsQueue.length) {
             this.isLastUpdateInterrupt = true;
 
             // 遍历动画属性列表，执行动画
-            this.animatePropsQueue.map(item => {
+            this.lastAnimatePropsQueue.map(item => {
                 item.zrenderShape.stopAnimation(true)
                 item.props['callback'] && item.props['callback']();
             });
@@ -236,7 +241,7 @@ export class Renderer {
             // 所有动画结束，触发afterUpadte回调事件
             callback && callback();
             this.viewModel.isViewUpdating = false;
-            this.animatePropsQueue.length = 0;
+            this.lastAnimatePropsQueue.length = 0;
             this.isLastUpdateInterrupt = false;
         }
     }
@@ -247,15 +252,16 @@ export class Renderer {
      * @param scale 
      */
     adjustGlobalShape(translate: [number, number] | 'auto', scale: [number, number] | 'auto') {
-        let globalBound = this.getGlobalBound();
+        let globalBound = this.getGlobalBound(),
+            isFirstRender = this.viewModel.isFirstRender;
 
         if(translate !== undefined) {
             if(Array.isArray(translate)) {
-                this.globalShape.translate(translate[0], translate[1], !this.firstRender);
+                this.globalShape.translate(translate[0], translate[1], !isFirstRender);
             }
 
             if(translate === 'auto') {
-                this.autoGlobalCenter(globalBound, !this.firstRender);
+                this.autoGlobalCenter(globalBound, !isFirstRender);
             }
         }
 
@@ -268,11 +274,11 @@ export class Renderer {
                 if(scale[1] > 4) scale[1] = 4;
                 if(scale[1] < 0.25) scale[1] = 0.25;
 
-                this.globalShape.scale(scale[0], scale[1], !this.firstRender);
+                this.globalShape.scale(scale[0], scale[1], !isFirstRender);
             }
 
             if(scale === 'auto') {
-                this.autoGlobalSize(globalBound, !this.firstRender);
+                this.autoGlobalSize(globalBound, !isFirstRender);
             }
         }
     }
@@ -321,12 +327,13 @@ export class Renderer {
      */
     autoGlobalCenter(bound: BoundingRect, enableAnimation: boolean = false) {
         let position = this.globalShape.getPosition(),
+            isFirstRender = this.viewModel.isFirstRender,
             cx = bound.x + bound.width / 2,
             cy = bound.y + bound.height / 2,
             dx, dy;
 
         // 首次调整
-        if(this.firstRender) {
+        if(isFirstRender) {
             dx = this.containerWidth / 2 - cx;
             dy = this.containerHeight / 2 - cy;
         }

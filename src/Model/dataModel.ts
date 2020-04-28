@@ -13,13 +13,6 @@ import { PointerModel } from "./pointerModel";
 export type ElementContainer = { [key: string]: Element[] };
 
 
-type bindingInfo = {
-    element: Element | Element[],
-    shape: Shape | Shape[],
-    param?: any,
-    bindFn: (element: Element | Element[], shapes: Shape | Shape[], param?: any) => void
-};
-
 // 数据模型管理器
 export class DataModel {
     // 视图模型管理器
@@ -28,8 +21,6 @@ export class DataModel {
     private linkModel: LinkModel;
     // 指针处理类
     private pointerModel: PointerModel;
-    // 图形绑定队列
-    private bindingInfos: bindingInfo[] = [];
     // 元素队列
     private elementList: Element[] = [];
     // 元素容器，即源数据经element包装后的结构
@@ -44,9 +35,9 @@ export class DataModel {
     }
 
     /**
-     * 从源数据构建element集
+     * 从源数据构建 element 集
      * 主要工作：
-     * - 遍历源数据，将每个SourceElement转化为Element
+     * - 遍历源数据，将每个 SourceElement 转化为 Element
      * - 处理连接
      * - 处理指针
      * @param sources 
@@ -81,42 +72,54 @@ export class DataModel {
     }
 
     /**
-     * 根据sources结构，将element绑定shape
+     * 根据布局函数布局 element
+     * @param layoutFn 
+     * @param containerWidth 
+     * @param containerHeight 
      */
-    bindShapes() {
-        Object.keys(this.elementContainer).map(prop => {
-            this.elementContainer[prop].map(ele => {
-                // 元素绑定对应图形
-                this.bind(ele, ele.shape, (ele, shape) => {
-                    if(!ele.updateShape(shape)) {
-                        shape.x = ele.x;
-                        shape.y = ele.y;
-                        shape.width = ele.width;
-                        shape.height = ele.height;
-                        shape.rotation = ele.rotation;
-                    }
-                });
-            });
-        });
+    layoutElements(layoutFn: Function, containerWidth: number, containerHeight: number) {
+        let elements: any = this.elementContainer;
+
+        if(Object.keys(elements).length === 1 && elements['element']) {
+            elements = elements['element'];
+        }
+
+        // 调用自定义布局函数
+        layoutFn(elements, containerWidth, containerHeight);
     }
 
     /**
-     * 响应绑定（更新绑定的shapes）
+     * 响应 element 的绑定（更新绑定的 shapes ）
      */
-    emitShapes() {
+    updateShapes(updateElements: Element[] = []) {
+        let elementList = updateElements.length? updateElements: this.elementList;
+
         // 更新与元素绑定的图形
-        this.bindingInfos.map(bindingItem => {
-            bindingItem.bindFn(
-                bindingItem.element, 
-                bindingItem.shape
-            );
-        });
+        for(let i = 0; i < elementList.length; i++) {
+            let element = elementList[i],
+                shape = element.shape;
+
+            shape.x = element.x;
+            shape.y = element.y;
+            shape.width = element.width;
+            shape.height = element.height;
+            shape.rotation = element.rotation;
+
+            shape.isDirty = true;
+        }
 
         // 若声明连接，则进行连接绑定
-        this.linkModel.emitLinkShapes(this.elementList);
+        this.linkModel.emitLinkShapes(elementList);
         
         // 若存在指针，则处理指针
-        this.pointerModel.emitPointerShapes(this.elementList);
+        this.pointerModel.emitPointerShapes(elementList);
+
+        // 更新 lastX 和 lastY
+        for(let i = 0; i < elementList.length; i++) {
+            let element = elementList[i];
+            element.lastX = element.x;
+            element.lastY = element.y;
+        }
     }
 
     /**
@@ -156,7 +159,7 @@ export class DataModel {
         let shapeOption = null, 
             contents = null,
             shapeName = null, 
-            shape = null;
+            shape: Shape = null;
 
         shapeOption = this.engine.layoutOption[elementName];
         shapeName = typeof this.engine.elementsOption === 'object'?
@@ -169,13 +172,14 @@ export class DataModel {
 
         shape = this.viewModel.createShape(ele.elementId, shapeName, { ...shapeOption, content: contents });
         
-        // 初始化元素数据
+        // 利用 shape 初始化 element 某些数据
         ele.shape = shape;
         ele.width = shape.width;
         ele.height = shape.height;
         ele.rotation = shape.rotation;
         ele.style = shape.style;
         ele.layoutOption = this.engine.layoutOption;
+        shape.element = ele;
       
         this.elementList.push(ele);
 
@@ -205,25 +209,6 @@ export class DataModel {
         else {
             content = null;
         }
-    }
-
-
-    /**
-     * 绑定shape
-     * @param bindingInfo
-     */
-    bind<T extends Element | Element[] = Element, U extends Shape | Shape[] = Shape>(
-        ele: T, 
-        shape: U, 
-        bindFn: (element: T, shape: U, param?: any) => void,
-        param?: any
-    ) {
-        this.bindingInfos.push({
-            element: ele,
-            shape,
-            param,
-            bindFn
-        });
     }
 
     
@@ -274,22 +259,15 @@ export class DataModel {
      * 重置上一次的数据，包括：
      * - elementList
      * - elementContainer
-     * - bindingInfo绑定信息
+     * - linkModel 数据
+     * - pointerModel 数据
      * @param shapeContainer 
      */
     resetData() {
         this.elementList.length = 0;
-        this.bindingInfos.length = 0;
         this.elementContainer = {};
 
         this.linkModel.clear();
         this.pointerModel.clear();
-    }
-
-    /**
-     * 清空数据
-     */
-    clear() {
-        this.resetData();
     }
 };

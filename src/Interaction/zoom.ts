@@ -13,22 +13,20 @@ export class Zoom extends Interaction {
     // 最小缩放值
     minZoomValue: number = 0.25;
 
-    init(zoomRange: [number, number] | boolean) {
-        if(!zoomRange) return;
-
-        let container = this.renderer.getContainer();
-
+    apply(zoomRange: [number, number] | boolean) {
         // 自定义缩放限制值
         if(Array.isArray(zoomRange)) {
-            this.minZoomValue = zoomRange[0];
-            this.maxZoomValue = zoomRange[1];
-            this.minZoomValue = Util.clamp(this.minZoomValue, 0, Infinity);
-            this.maxZoomValue = Util.clamp(this.maxZoomValue, 0, Infinity);
+            this.clampZoomRange(zoomRange);
         }
         
-        container.addEventListener('wheel', (event: WheelEvent) => {
-            this.handle(event['wheelDelta'] > 0? 1: -1);
-        });
+        this.container.addEventListener('wheel', wheelEvent => this.emitEvent('wheel', wheelEvent));
+    }
+
+    update(zoomRange: [number, number] | boolean) {
+        // 自定义缩放限制值
+        if(Array.isArray(zoomRange)) {
+            this.clampZoomRange(zoomRange);
+        }
     }
 
     response(wheelDelta: 1 | -1) {
@@ -45,5 +43,24 @@ export class Zoom extends Interaction {
         scaleY = Util.clamp(scaleY, this.maxZoomValue, this.minZoomValue);
 
         globalShape.scale(scaleX, scaleY);
+    }
+
+    /**
+     * 鼠标滚轮事件
+     * @param event 
+     */
+    wheel(event: WheelEvent) {
+        this.handle(event['wheelDelta'] > 0? 1: -1);
+    }
+
+    /**
+     * 限制缩放值
+     * @param zoomRange 
+     */
+    clampZoomRange(zoomRange: [number, number]) {
+        this.minZoomValue = zoomRange[0];
+        this.maxZoomValue = zoomRange[1];
+        this.minZoomValue = Util.clamp(this.minZoomValue, 0, Infinity);
+        this.maxZoomValue = Util.clamp(this.maxZoomValue, 0, Infinity);
     }
 }

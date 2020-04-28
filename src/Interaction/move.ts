@@ -20,50 +20,11 @@ export class Move extends Interaction {
 
     private moveType: { hor: boolean, ver: boolean } = { hor: false, ver: false };
 
-    init(enableMove: boolean) {
-        if(!enableMove) return;
-
-        let container = this.renderer.getContainer(),
-            globalShape = this.renderer.getGlobalShape();
-            
-        container.addEventListener('mousedown', (event: MouseEvent) => {
-            this.containerWidth = this.renderer.getContainerWidth();
-            this.containerHeight = this.renderer.getContainerHeight();
-            this.edgeOffsetX = this.containerWidth / 4;
-            this.edgeOffsetY = this.containerHeight / 4;
-            this.viewWindow = this.generateViewWindow(globalShape);
-            this.curX = event.clientX;
-            this.curY = event.clientY;
-
-            if(this.viewWindow.width > this.containerWidth) {
-                this.moveType.hor = true;
-            }
-            if(this.viewWindow.height > this.containerHeight) {
-                this.moveType.ver = true;
-            }
-
-            if(this.moveType.hor || this.moveType.ver) {
-                this.enableMove = true;
-                this.interactionModel.setData('moving', true);
-            }
-        });
-
-        container.addEventListener('mousemove', (event: MouseEvent) => {
-            if(this.enableMove) {
-                this.handle({
-                    x: event.clientX,
-                    y: event.clientY
-                });
-            }
-        });
-
-        container.addEventListener('mouseup', () => {
-            this.reset();
-        });
-
-        container.addEventListener('mouseleave', () => {
-            this.reset();
-        });
+    apply() {
+        this.container.addEventListener('mousedown', mouseEvent => this.emitEvent('mouseDown', mouseEvent));
+        this.container.addEventListener('mousemove', mouseEvent => this.emitEvent('mouseMove', mouseEvent));
+        this.container.addEventListener('mouseup', () => this.emitEvent('reset'));
+        this.container.addEventListener('mouseleave', () => this.emitEvent('reset'));
     }
 
     response(param) {
@@ -104,6 +65,47 @@ export class Move extends Interaction {
         this.curY = param.y;
 
         globalShape.translate(dx, dy);
+    }
+
+    /**
+     * 鼠标点按事件
+     * @param event 
+     */
+    mouseDown(event: MouseEvent) {
+        let globalShape = this.renderer.getGlobalShape();
+        
+        this.containerWidth = this.renderer.getContainerWidth();
+        this.containerHeight = this.renderer.getContainerHeight();
+        this.edgeOffsetX = this.containerWidth / 4;
+        this.edgeOffsetY = this.containerHeight / 4;
+        this.viewWindow = this.generateViewWindow(globalShape);
+        this.curX = event.clientX;
+        this.curY = event.clientY;
+
+        if(this.viewWindow.width > this.containerWidth) {
+            this.moveType.hor = true;
+        }
+        if(this.viewWindow.height > this.containerHeight) {
+            this.moveType.ver = true;
+        }
+
+        if(this.moveType.hor || this.moveType.ver) {
+            this.enableMove = true;
+            this.interactionModel.setData('moving', true);
+        }
+    }
+
+    /**
+     * 鼠标移动事件
+     * @param event 
+     */
+    mouseMove(event: MouseEvent) {
+        if(this.enableMove) {
+            this.handle({
+                x: event.clientX,
+                y: event.clientY
+            });
+        }
     }
 
     /**

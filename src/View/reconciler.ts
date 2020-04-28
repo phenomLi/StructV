@@ -1,6 +1,7 @@
-import { Shape, Style } from "./../Shapes/shape";
+import { Shape, Style } from "../Shapes/shape";
 import { PolyLine } from "../Shapes/polyLine";
 import { shapeContainer, ViewModel } from "./viewModel";
+
 
 export enum patchType {
     ADD,
@@ -16,18 +17,22 @@ export interface patchInfo {
     type: number;
     newShape: Shape;
     oldShape: Shape;
-    data?: any;
 }
 
 
-export class Differ {
+export class Reconciler {
+    private viewModel: ViewModel;
+
+    constructor(viewModel: ViewModel) {
+        this.viewModel = viewModel;
+    }
 
     /**
      * 进行图形样式对象的比较
      * @param oldStyle 
      * @param newStyle 
      */
-    differStyle(oldStyle: Style, newStyle: Style): {name: string, old: any, new: any }[] {
+    reconcileStyle(oldStyle: Style, newStyle: Style): {name: string, old: any, new: any }[] {
         let styleName: {name: string, old: any, new: any }[] = [];
 
         Object.keys(newStyle).map(prop => {
@@ -44,12 +49,14 @@ export class Differ {
     }
 
     /**
-     * 图形间的differ
+     * 图形间的 differ
      * @param oldShape 
      * @param newShape 
      */
-    differShape(oldShape: Shape, newShape: Shape): patchInfo[] {
+    reconcileShape(oldShape: Shape, newShape: Shape) {
         let patchList: patchInfo[] = [];
+
+        if(oldShape.isDirty === false && newShape.isDirty === false) return;
 
         // 比较图形坐标位置
         if(oldShape instanceof PolyLine && newShape instanceof PolyLine) {
@@ -90,114 +97,80 @@ export class Differ {
         }
 
         // 比较样式
-        let style = this.differStyle(oldShape.prevStyle, newShape.style);
+        let style = this.reconcileStyle(oldShape.prevStyle, newShape.style);
         if(style.length) {
             patchList.push({
                 type: patchType.STYLE,
                 newShape,
-                oldShape,
-                data: style
+                oldShape
             });
         }
 
-        return patchList;
+        // 对变化进行更新
+        this.patch(patchList);
     }
 
     /**
-     * 进行视图模型中图形列表的differ
-     * @param oldShapeList
-     * @param newShapeList
-     * @param shapeListName
+     * 
+     * @param container 
+     * @param shapeList 
      */
-    differShapeList(oldShapeList: Shape[], newShapeList: Shape[], shapeListName: string): patchInfo[] {
-        let patchList: patchInfo[] = [],
-            newShape: Shape,
-            oldShape: Shape,
-            i;
+    reconcileShapeList(container: shapeContainer, shapeList: Shape[]) {
+        let patchList: patchInfo[] = [];
 
-        for(i = 0; i < newShapeList.length; i++) {
-            newShape = newShapeList[i];
-            oldShape = oldShapeList.find(shape => newShape.id === shape.id);
+        for(let i = 0; i < shapeList.length; i++) {
+            let newShape = shapeList[i],
+                name = newShape.name;
 
-            // 若旧图形列表存在对应的图形
-            if(oldShape) {
-                oldShape.visited = true;
-                patchList.push(...this.differShape(oldShape, newShape));
-            }
-            // 否则标记为新增
-            else {
+            // 若发现存在于新视图模型而不存在于旧视图模型的图形，则该图形都标记为 ADD
+            if(container[name] === undefined) {
                 patchList.push({
                     type: patchType.ADD,
                     newShape,
-                    oldShape: null,
-                    data: shapeListName
-                });
-            } 
-        }
-
-        // 移除未访问过的图形
-        oldShapeList.filter(shape => !shape.visited).map(shape => patchList.push({
-            type: patchType.REMOVE,
-            newShape: null,
-            oldShape: shape,
-            data: shapeListName
-        }));
-
-        return patchList;
-    }
-
-    /**
-     * 进行视图模型differ
-     * @param oldView 
-     * @param newView 
-     */
-    differShapeContainer(oldShapeContainer: shapeContainer, newShapeContainer: shapeContainer): patchInfo[] {
-        let patchList: patchInfo[] = [];
-        
-        // 若发现存在于新视图模型而不存在于旧视图模型的图形列表，则该列表所有图形都标记为ADD
-        Object.keys(newShapeContainer).map(shapeList => {
-            if(oldShapeContainer[shapeList] === undefined) {
-                newShapeContainer[shapeList].map(item => {
-                    patchList.push({
-                        type: patchType.ADD,
-                        newShape: item,
-                        oldShape: null,
-                        data: shapeList
-                    });
+                    oldShape: null
                 });
             }
-        });
+            else {
+                let oldShape = container[name].find(item => item.id === newShape.id);
 
-        // 若发现存在于旧视图模型而不存在于新视图模型的图形列表，则该列表所有图形都标记为REMOVE
-        Object.keys(oldShapeContainer).map(shapeList => {
-            if(newShapeContainer[shapeList] === undefined) {
-                oldShapeContainer[shapeList].map(item => {
+                // 若旧图形列表存在对应的图形，进行 shape 间 differ
+                if(oldShape) {
+                    oldShape.visited = true;
+                    this.reconcileShape(oldShape, newShape);
+                }
+                // 若发现存在于新视图模型而不存在于旧视图模型的图形，则该图形都标记为 ADD
+                else {
+                    patchList.push({
+                        type: patchType.ADD,
+                        newShape,
+                        oldShape: null
+                    });
+                }
+            }
+        }
+
+        // 在旧视图容器中寻找未访问过的图形，表明该图形该图形需要移除
+        Object.keys(container).forEach(key => {
+            container[key].forEach(shape => {
+                if(shape.visited === false) {
                     patchList.push({
                         type: patchType.REMOVE,
                         newShape: null,
-                        oldShape: item,
-                        data: shapeList
+                        oldShape: shape
                     });
-                });
-            }
+                }
+            });
         });
 
-        // 对于新旧视图模型都存在的图形列表，进行列表differ
-        Object.keys(newShapeContainer).map(shapeList => {
-            if(oldShapeContainer[shapeList]) {
-                patchList.push(...this.differShapeList(oldShapeContainer[shapeList], newShapeContainer[shapeList], shapeList));
-             }
-        });
-
-        return patchList;
+        this.patch(patchList);
     }
+
 
     /**
      * 对修改的视图进行补丁更新
-     * @param viewModel 
      * @param patchList 
      */
-    patch(viewModel: ViewModel, patchList: patchInfo[]) {
+    patch(patchList: patchInfo[]) {
         let patch: patchInfo, 
             newShape,
             oldShape,
@@ -210,38 +183,44 @@ export class Differ {
 
             switch(patch.type) {
                 case patchType.ADD: {
-                    viewModel.addShape(newShape, patch.data);
+                    this.viewModel.addShape(newShape);
                     break;
                 }
 
                 case patchType.REMOVE: {
-                    viewModel.removeShape(oldShape);
+                    this.viewModel.removeShape(oldShape);
                     break;
                 }
 
                 case patchType.POSITION: {
                     if(newShape instanceof PolyLine && oldShape instanceof PolyLine) {
-                        oldShape.updateZrenderShape('path', true);
+                        oldShape.prevPath = newShape.path;
+                        oldShape.updateZrenderShape('path');
                     } 
                     else {
-                        oldShape.updateZrenderShape('position', true);
+                        oldShape.prevX = newShape.x;
+                        oldShape.prevY = newShape.y;
+                        oldShape.updateZrenderShape('position');
                     }
                     break;
                 }
 
                 case patchType.ROTATION: {
-                    oldShape.updateZrenderShape('rotation', true);
+                    oldShape.prevRotation = newShape.rotation;
+                    oldShape.updateZrenderShape('rotation');
                     break;
                 }
 
                 case patchType.SIZE: {
-                    oldShape.updateZrenderShape('size', true);
+                    oldShape.prevWidth = newShape.width;
+                    oldShape.prevHeight = newShape.height;
+                    oldShape.updateZrenderShape('size');
                     break;
                 }
 
                 case patchType.STYLE: {
-                    oldShape.style = newShape.style;
-                    oldShape.updateZrenderShape('style', true);
+                    oldShape.prevStyle = newShape.style;
+                    oldShape.updateZrenderShape('style');
                     break;
                 }
 

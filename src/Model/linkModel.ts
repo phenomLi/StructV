@@ -25,8 +25,8 @@ export interface LinkPair {
     anchorPair: [anchor, anchor];
     anchorPosPair: [number, number][];
     label: string;
+    labelShape: Text;
     index: number;
-    dynamic: boolean;
 }
 
 
@@ -102,6 +102,13 @@ export class LinkModel {
                 }
             }
         });
+
+        // 初始化所有连线的开始/结束位置
+        this.initLinksPos();
+        // 处理被取消的连线
+        this.applyCanceledLink(elementList);
+        // 将该批次连接对队列设为上一批连接对队列
+        this.lastLinkPairs = this.linkPairs;
     }
 
     /**
@@ -109,15 +116,18 @@ export class LinkModel {
      * @param elementList 
      */
     emitLinkShapes(elementList: Element[]) {
-        // 处理被取消的连线
-        this.applyCanceledLink(elementList);
-
         // 遍历连接对队列，进行元素间的连接绑定
-        for(let i = 0; i < this.linkPairs.length; i++) {
-            this.linkElement(this.linkPairs[i]);
-        }
+        for(let i = 0; i < elementList.length; i++) {
+            for(let j = 0; j < elementList[i].effectLinks.length; j++) {
+                let linkPair = elementList[i].effectLinks[j];
+                this.updateLink(linkPair, elementList[i]);
 
-        this.lastLinkPairs = this.linkPairs;
+                linkPair.linkShape.isDirty = true;
+                if(linkPair.labelShape) {
+                    linkPair.labelShape.isDirty = true;
+                } 
+            }
+        }
     }
 
 
@@ -145,14 +155,36 @@ export class LinkModel {
             anchorPair: [anchor, anchor] = linkInfo.anchorPair, 
             index: number = linkInfo.index,
             linkOption = this.linkOptions[linkName],
-            linkShape = this.viewModel.createShape(id, 'line', linkOption) as Line;
+            linkShape = null,
+            labelShape = null;
 
         if(anchorPair === null || anchorPair === undefined) {
             anchorPair = this.getAnchorPair(element, target, linkName, index);
         }
 
-        // 添加一个linkPair到linkPairs队列
-        this.linkPairs.push({
+        // 若锚点越界（如只有3个锚点，contact却有大于3的值），退出
+        if(anchorPair && (anchorPair[0] === undefined || anchorPair[1] === undefined)) {
+            return;
+        }
+
+        linkShape = this.viewModel.createShape(id, 'line', linkOption) as Line;
+        label = this.labelSolver(label, sourceTarget);
+        
+        if(label) {
+            labelShape = this.viewModel.createShape(
+                `${element.elementId}-${target.elementId}-label`,
+                'text',
+                {
+                    show: linkOption.show,
+                    content: label,
+                    style: linkOption.labelStyle
+                }
+            );
+
+            this.labelList.push(labelShape);
+        }
+
+        let linkPair = {
             id,
             linkName,
             linkShape,
@@ -160,21 +192,29 @@ export class LinkModel {
             target,
             anchorPair,
             anchorPosPair: null,
-            label: this.labelSolver(label, sourceTarget),
-            index,
-            dynamic: anchorPair? false: true
-        });
+            label,
+            labelShape,
+            index
+        };
+
+        // 添加一个linkPair到linkPairs队列
+        this.linkPairs.push(linkPair);
+
+        // 将该连接对添加到 element 和 target 的 effectPairs 中
+        element.effectLinks.push(linkPair);
+        target.effectLinks.push(linkPair);
+
 
         // 响应onLink钩子函数
         element.onLinkTo(target, {
             style: linkShape.style, 
-            linkName, 
+            name: linkName, 
             index,
             label
         });
         target.onLinkFrom(element, {
             style: linkShape.style, 
-            linkName, 
+            name: linkName, 
             index,
             label
         });
@@ -214,54 +254,65 @@ export class LinkModel {
     }
 
     /**
+     * 计算连线的初始坐标
+     */
+    private initLinksPos() {
+        for(let i = 0; i < this.linkPairs.length; i++) {
+            let linkPair = this.linkPairs[i],
+                linkShape = linkPair.linkShape,
+                element = linkPair.ele,
+                target = linkPair.target,
+                anchorPair = linkPair.anchorPair,
+                start, end;
+
+            // 若使用动态锚点，获取动态锚点
+            if(!linkPair.anchorPair) {
+                [start, end] = this.getDynamicAnchorPos(element, target);
+            }
+            // 若已配置有连接点，使用连接点
+            else {
+                start = this.getAnchorPos(element, anchorPair[0]),
+                end = this.getAnchorPos(target, anchorPair[1]);
+            }
+            
+            // 若发现该连接有冲突，则进行处理，重新计算start，end坐标
+            [start, end] = this.anchorAvoid([start, end]);
+            linkPair.anchorPosPair = [start, end];
+
+            linkShape.start.x = start[0];
+            linkShape.start.y = start[1];
+            linkShape.end.x = end[0];
+            linkShape.end.y = end[1];
+        }
+    }
+
+    /**
      * 连接两结点
      * @param linkPair
      */
-    private linkElement(linkPair: LinkPair) {
-        let linkOption = this.layoutOption.link[linkPair.linkName],
-            element = linkPair.ele,
+    private updateLink(linkPair: LinkPair, effectElement: Element) {
+        let element = linkPair.ele,
             target = linkPair.target,
-            label = linkPair.label,
             linkShape = linkPair.linkShape,
-            labelShape = null,
-            start, end;
+            labelShape = linkPair.labelShape,
+            dx = 0,
+            dy = 0;
 
-        // 若锚点越界（如只有3个锚点，contact却有大于3的值），退出
-        if(linkPair.anchorPair && (linkPair.anchorPair[0] === undefined || linkPair.anchorPair[1] === undefined)) {
-            return;
-        }
-
-        if(label) {
-            labelShape = this.viewModel.createShape(
-                `${element.elementId}-${target.elementId}-label`,
-                'text',
-                {
-                    show: linkOption.show,
-                    content: label,
-                    style: linkOption.labelStyle
-                }
-            );
-            this.labelList.push(labelShape);
+        // 若连线受影响的是发出 element，更新连线起点
+        if(linkPair.ele === effectElement) {
+            dx = element.x - element.lastX, 
+            dy = element.y - element.lastY,
+            linkShape.start.x += dx;
+            linkShape.start.y += dy;
         }
 
-        // 若使用动态锚点，获取动态锚点
-        if(linkPair.dynamic) {
-            [start, end] = this.getDynamicAnchorPos(element, target);
+        // 若连线受影响的是目标 element，更新连线终点
+        if(linkPair.target === effectElement) {
+            dx = target.x - target.lastX,
+            dy = target.y - target.lastY,
+            linkShape.end.x += dx;
+            linkShape.end.y += dy;
         }
-        // 若已配置有连接点，使用连接点
-        else {
-            start = this.getAnchorPos(element, linkPair.anchorPair[0]),
-            end = this.getAnchorPos(target, linkPair.anchorPair[1]);
-        }
-        
-        // 若发现该连接有冲突，则进行处理，重新计算start，end坐标
-        [start, end] = this.anchorAvoid([start, end]);
-        linkPair.anchorPosPair = [start, end];
-        
-        linkShape.start.x = start[0];
-        linkShape.start.y = start[1];
-        linkShape.end.x = end[0];
-        linkShape.end.y = end[1];
 
         // 若有标签，标签避让检测
         if(labelShape) {

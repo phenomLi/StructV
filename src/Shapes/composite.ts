@@ -75,6 +75,7 @@ export class Composite extends Shape {
 
             item.shape.x -= this.x;
             item.shape.y -= this.y; 
+            item.shape.isDirty = this.isDirty;
 
             let {x, y, width, height} = this.getBound(),
                 cx = x + width / 2, 

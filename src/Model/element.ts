@@ -1,12 +1,14 @@
 import { Shape, Style } from '../Shapes/shape';
-import { SourceElement, LinkData } from '../sources';
+import { SourceElement } from '../sources';
 import { LayoutOption } from '../option';
 import { BoundingRect, Bound } from '../View/boundingRect';
+import { LinkPair } from './linkModel';
+import { PointerPair } from './pointerModel';
 
 
 export interface LinkInfo {
     style: Style, 
-    linkName: string, 
+    name: string, 
     index: number,
     label: string
 }
@@ -25,8 +27,12 @@ export class Element<T extends SourceElement = SourceElement> {
     height: number = 0;
     style: Style = null;
 
+    lastX: number = 0;
+    lastY: number = 0;
     shape: Shape = null;
     layoutOption: LayoutOption;
+    effectLinks: LinkPair[] = [];
+    effectRefer: PointerPair = null;
 
     [key: string]: any;
 
@@ -63,13 +69,6 @@ export class Element<T extends SourceElement = SourceElement> {
     }
 
     // ------------------------钩子方法-------------------------
-
-    /**
-     * 定义如何更新元素自身对应的图形
-     */
-    updateShape(shape: Shape): boolean | void {
-        return false;
-    }
 
     /**
      * 当结点连接其他结点触发

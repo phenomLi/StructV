@@ -23,7 +23,6 @@ export class PolyLine extends Shape {
 
     restoreData() {
         super.restoreData();
-        this.prevPath = this.path;
         this.path = [];
     }
 
