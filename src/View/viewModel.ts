@@ -136,17 +136,6 @@ export class ViewModel {
     }
 
     /**
-     * 更新复合图形
-     */
-    private updateComposite() {
-        this.shapeList.map(shape => {
-            if(shape instanceof Composite) {
-                shape.updateSubShapes();
-            }
-        });
-    }
-
-    /**
      * 寻找可复用的Shape
      * @param id
      * @param shapeName
@@ -182,7 +171,11 @@ export class ViewModel {
      */
     reconciliation(reconcileShapeOnly: boolean = false) {
         // 更新复合图形
-        this.updateComposite();
+        this.shapeList.forEach(shape => {
+            if(shape instanceof Composite && shape.isDirty) {
+                shape.updateSubShapes();
+            }
+        });
 
         if(reconcileShapeOnly) {
             for(let i = 0; i < this.shapeList.length; i++) {
@@ -222,7 +215,7 @@ export class ViewModel {
             this.isViewUpdating = true;
 
             // 渲染（创建和销毁） zrender 图形实例
-            this.renderer.renderZrenderShapes(this.shapeContainer, this.removeList);
+            this.renderer.renderZrenderShapes(this.shapeList, this.removeList);
             // 调整视图
             this.renderer.adjustGlobalShape(this.layoutOption.translate, this.layoutOption.scale);
         }

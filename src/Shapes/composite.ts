@@ -76,8 +76,9 @@ export class Composite extends Shape {
             item.shape.x -= this.x;
             item.shape.y -= this.y; 
             item.shape.isDirty = this.isDirty;
+            item.shape.element = this.element;
 
-            let {x, y, width, height} = this.getBound(),
+            let { x, y, width, height } = this.getBound(),
                 cx = x + width / 2, 
                 cy = y + height / 2;
 
@@ -88,10 +89,6 @@ export class Composite extends Shape {
                     item.shape.y = d[1];
                     item.shape.rotation = this.rotation;
                 });
-            }
-
-            if(item.shape instanceof Composite) {
-                item.shape.updateSubShapes();
             }
         });
     }

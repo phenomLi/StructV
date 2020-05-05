@@ -9,64 +9,109 @@ import { Element } from "../Model/element";
  * 交互模块基类
  */
 export class Interaction {
+    protected name: string;
     protected interactionModel: InteractionModel;
     protected elementList: Element[];
     protected engine: Engine;
     protected renderer: Renderer;
-    protected container: HTMLElement;
+    protected zr;
     protected isEnable: boolean;
+    protected optionValue: any;
 
-    public optionValue: any = null;
-
-    constructor(interactionModel: InteractionModel, engine: Engine) {
+    constructor(name: string, interactionModel: InteractionModel, engine: Engine) {
+        this.name = name;
         this.interactionModel = interactionModel;
         this.engine = engine;
         this.elementList = engine.getElementList();
         this.renderer = engine.getRenderer();
-        this.container = this.renderer.getContainer();
+        this.zr = this.renderer.getZrender();
 
         this.isEnable = true;
     }
 
     /**
+     * 设置配置项的值
+     * @param optionVal 
+     */
+    setOptionVal(optionVal: any) {
+        this.optionValue = optionVal;
+    }
+
+    /**
+     * 更新交互模块信息
+     */
+    update() {}
+
+    /**
      * 根据配置值应用交互
-     * @param optionValue
      */
-    apply(optionValue: any) { }
+    init() { }
 
     /**
-     * 根据配置值更新交互
-     * @param optionValue 
-     */
-    update(optionValue: any) { }
-
-    /**
-     * 响应交互
+     * 事件触发器
      * @param param 
      */
-    response(param: any): Element[] | void { }
+    trigger(param: any) { }
+
+    /**
+     * 事件响应器 
+     * @param param 
+     */
+    handler(param: any): Element[] | boolean | void { return null }
+
+    /**
+     * 事件结束器
+     * @param param
+     */
+    finish(param: any) { }
+
+    /**
+     * 该交互的触发条件
+     * - 默认为 true 即无条件触发
+     */
+    protected triggerCondition(): boolean { return true }
 
     /**
      * 处理交互
      * @param param 
      */
-    handle(param: any) {
-        // 正在更新视图时不执行
-        if(this.engine.isViewUpdating() === false) {
-            let dirtyElements = this.response(param);
-            this.engine.updateElement(dirtyElements || []);
+    protected emitHandler(param?: any) {
+        this.interactionModel.handler(this.name, param);
+    }
+
+    /**
+     * 处理触发器
+     * @param param 
+     */
+    protected emitTrigger(param?: any) {
+        if(this.isEnable && this.triggerCondition()) {
+            this.trigger(param);
         }
     }
 
     /**
-     * 响应事件
-     * @param eventName 
+     * 
      * @param param 
      */
-    emitEvent(eventName: string, ...param: any[]) {
-        if(this.isEnable) {
-            this[eventName](...param);
-        }
+    protected emitFinish(param?: any) {
+        this.finish(param);
+    }
+
+    /**
+     * 设置交互全局数据
+     * @param dataName 
+     * @param value 
+     */
+    protected setData(dataName: string, value: any) {
+        this.interactionModel.dataStore[dataName] = value;
+    }
+
+    /**
+     * 获取交互数据
+     * @param dataName 
+     */
+    protected getData(dataName: string): any {
+        return this.interactionModel.dataStore[dataName];
     }
 
     /**

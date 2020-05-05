@@ -3,9 +3,10 @@ import { InteractionOption } from "../option";
 import { Zoom } from "./zoom";
 import { Move } from "./move";
 import { Drag } from "./drag";
-import { Hover } from "./hover";
 import { Focus } from "./focus";
 import { Engine } from "../engine";
+import { Zone } from "./zone";
+import { Element } from "../Model/element";
 
 
 
@@ -15,18 +16,19 @@ import { Engine } from "../engine";
  */
 export class InteractionModel {
     private engine: Engine;
-    private dataStore: { [key: string]: any } = {};
-
     // 从交互配置项映射至交互模块的表
     private interactionConstructorMap: { [key in keyof InteractionOption]: { new(...arg): Interaction} } = {
-        wheelScale: Zoom,
-        dragView: Move,
+        zoomView: Zoom,
+        moveView: Move,
         drag: Drag,
-        hover: Hover,
-        focus: Focus
+        focus: Focus,
+        frameSelect: Zone
     };
 
-    public interactionMap: { [key: string]: Interaction } = {};
+    public interactionMap: { [key: string]: Interaction } = { };
+    public dataStore: { [key: string]: any } = {
+        selectedElements: null
+    };
     
     constructor(engine: Engine) {
         this.engine = engine;
@@ -38,23 +40,23 @@ export class InteractionModel {
      */
     applyInteractions(interactionOption: InteractionOption) {
         Object.keys(interactionOption).map(key => {
-            if(!interactionOption[key]) {
-                if(this.interactionMap[key]) {
+            if(this.interactionMap[key] === undefined) {
+                let interactionConstructor = this.interactionConstructorMap[key],
+                    interaction: Interaction = new interactionConstructor(key, this, this.engine);
+
+                this.interactionMap[key] = interaction;
+                interaction.setOptionVal(interactionOption[key]);
+                interaction.init();
+            }
+            else {
+                this.interactionMap[key].setOptionVal(interactionOption[key]);
+                this.interactionMap[key].update();
+
+                // 值直接为 false
+                if(!interactionOption[key]) {
                     this.interactionMap[key].disable();
                     delete this.interactionMap[key];
                 }
-                return;
-            }
-
-            if(this.interactionMap[key] === undefined) {
-                let interactionConstructor = this.interactionConstructorMap[key],
-                    interaction = new interactionConstructor(this, this.engine);
-
-                this.interactionMap[key] = interaction;
-                requestAnimationFrame(() => interaction.apply(interactionOption[key]));
-            }
-            else {
-                this.interactionMap[key].update(interactionOption[key]);
             }
         });
     }
@@ -68,19 +70,42 @@ export class InteractionModel {
     }
 
     /**
-     * 设置交互全局数据
-     * @param dataName 
-     * @param value 
+     * 手动触发交互事件
+     * @param interactionName 
+     * @param param 
      */
-    setData(dataName: string, value: any) {
-        this.dataStore[dataName] = value;
+    trigger(interactionName: string, param?: any) {
+        if(this.interactionMap[interactionName]) {
+            this.interactionMap[interactionName].trigger(param);
+        }
     }
 
     /**
-     * 获取交互数据
-     * @param dataName 
+     * 手动响应交互事件
+     * @param interactionName 
+     * @param param 
      */
-    getData(dataName: string): any {
-        return this.dataStore[dataName];
+    handler(interactionName: string, param?: any) {
+        // 正在更新视图时或者交互模块不存在时不执行
+        if(this.engine.isViewUpdating() === false && this.interactionMap[interactionName]) {
+            let value = this.interactionMap[interactionName].handler(param);
+
+            if(value === false || value === undefined) {
+                return;
+            }
+
+            this.engine.updateElement(Array.isArray(value)? value: []);
+        }
+    }
+
+    /**
+     * 手动结束交互事件
+     * @param interactionName 
+     * @param param 
+     */
+    finish(interactionName: string, param?: any) {
+        if(this.interactionMap[interactionName]) {
+            this.interactionMap[interactionName].finish(param);
+        }
     }
 }

@@ -58,8 +58,6 @@ export class PointerModel {
             }
         });
 
-        // 初始化所有外部指针的开始/结束位置
-        this.initRefersPos();
         // 处理被取消指向的外部指针
         this.applyCanceledRefer(elementList);
         // 将该批次指针队列设为上一批指针队列
@@ -150,29 +148,9 @@ export class PointerModel {
     }
 
     /**
-     * 根据配置项，更新指针图形
-     * @param elementList 
-     */
-    emitPointerShapes(elementList: Element[]) {
-        // 遍历指针对队列，进行元素的指针绑定
-        for(let i = 0; i < elementList.length; i++) {
-            if(elementList[i].effectRefer) {
-                let pointerPair = elementList[i].effectRefer;
-
-                this.updateRefer(pointerPair);
-
-                pointerPair.pointerShape.isDirty = true;
-                pointerPair.labelShapes.forEach(item => {
-                    item.isDirty = true;
-                });
-            }
-        }
-    }
-
-    /**
      * 初始化外部指针的坐标
      */
-    private initRefersPos() {
+    setRefersPos() {
         // 由字符串方向（top，left，bottom，right）映射到锚点的表
         // 主要为外部指针所用
         const directionMapAnchor = {
@@ -230,7 +208,7 @@ export class PointerModel {
      * @param pointerPair 
      * @param dPos
      */
-    private updateRefer(pointerPair: PointerPair) {
+    updateReferPos(pointerPair: PointerPair) {
         // 需要被合并的指针，跳过不处理
         if(pointerPair.masterPair) {
             return;

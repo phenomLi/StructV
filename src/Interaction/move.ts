@@ -11,6 +11,7 @@ export class Move extends Interaction {
 
     private curX: number;
     private curY: number;
+    private container: HTMLElement;
     private containerWidth: number;
     private containerHeight: number;
 
@@ -20,58 +21,15 @@ export class Move extends Interaction {
 
     private moveType: { hor: boolean, ver: boolean } = { hor: false, ver: false };
 
-    apply() {
-        this.container.addEventListener('mousedown', mouseEvent => this.emitEvent('mouseDown', mouseEvent));
-        this.container.addEventListener('mousemove', mouseEvent => this.emitEvent('mouseMove', mouseEvent));
-        this.container.addEventListener('mouseup', () => this.emitEvent('reset'));
-        this.container.addEventListener('mouseleave', () => this.emitEvent('reset'));
+    init() {
+        this.container = this.renderer.getContainer();
+        this.container.addEventListener('mousedown', mouseEvent => this.emitTrigger(mouseEvent));
+        this.container.addEventListener('mousemove', mouseEvent => this.emitHandler(mouseEvent));
+        this.container.addEventListener('mouseup', () => this.emitFinish());
+        this.container.addEventListener('mouseleave', () => this.emitFinish());
     }
 
-    response(param) {
-        let dx = 0, dy = 0,
-            globalShape = this.renderer.getGlobalShape();
-
-        if(this.moveType.hor) {
-            dx = param.x - this.curX;
-            this.viewWindow.x += dx;
-
-            if(this.viewWindow.x > 0) {
-                this.viewWindow.x = 0;
-                dx = 0;
-            }
-
-            if(this.viewWindow.x < this.containerWidth - this.viewWindow.width) {
-                this.viewWindow.x = this.containerWidth - this.viewWindow.width;
-                dx = 0;
-            }
-        }
-
-        if(this.moveType.ver) {
-            dy = param.y - this.curY;
-            this.viewWindow.y += dy;
-
-            if(this.viewWindow.y > 0) {
-                this.viewWindow.y = 0;
-                dy = 0;
-            }
-
-            if(this.viewWindow.y < this.containerHeight - this.viewWindow.height) {
-                this.viewWindow.y = this.containerHeight - this.viewWindow.height;
-                dy = 0;
-            }
-        }
-
-        this.curX = param.x;
-        this.curY = param.y;
-
-        globalShape.translate(dx, dy);
-    }
-
-    /**
-     * 鼠标点按事件
-     * @param event 
-     */
-    mouseDown(event: MouseEvent) {
+    trigger(event: MouseEvent) {
         let globalShape = this.renderer.getGlobalShape();
         
         this.containerWidth = this.renderer.getContainerWidth();
@@ -91,21 +49,70 @@ export class Move extends Interaction {
 
         if(this.moveType.hor || this.moveType.ver) {
             this.enableMove = true;
-            this.interactionModel.setData('moving', true);
+            this.setData('moving', true);
         }
     }
 
-    /**
-     * 鼠标移动事件
-     * @param event 
-     */
-    mouseMove(event: MouseEvent) {
-        if(this.enableMove) {
-            this.handle({
-                x: event.clientX,
-                y: event.clientY
-            });
+    handler(event: MouseEvent): true {
+        if(this.enableMove === false) {
+            return;
         }
+
+        let x = event.clientX,
+            y = event.clientY,
+            dx = 0, 
+            dy = 0,
+            globalShape = this.renderer.getGlobalShape();
+
+        if(this.moveType.hor) {
+            dx = x - this.curX;
+            this.viewWindow.x += dx;
+
+            if(this.viewWindow.x > 0) {
+                this.viewWindow.x = 0;
+                dx = 0;
+            }
+
+            if(this.viewWindow.x < this.containerWidth - this.viewWindow.width) {
+                this.viewWindow.x = this.containerWidth - this.viewWindow.width;
+                dx = 0;
+            }
+        }
+
+        if(this.moveType.ver) {
+            dy = y - this.curY;
+            this.viewWindow.y += dy;
+
+            if(this.viewWindow.y > 0) {
+                this.viewWindow.y = 0;
+                dy = 0;
+            }
+
+            if(this.viewWindow.y < this.containerHeight - this.viewWindow.height) {
+                this.viewWindow.y = this.containerHeight - this.viewWindow.height;
+                dy = 0;
+            }
+        }
+
+        this.curX = x;
+        this.curY = y;
+
+        globalShape.translate(dx, dy);
+
+        return true;
+    }
+
+    finish() {
+        if(this.enableMove) {
+            this.enableMove = false;
+            this.setData('moving', false);
+            this.moveType = { hor: false, ver: false };
+        }
+    }
+
+    triggerCondition() {
+        // 若进入了结点拖拽或者选取模式，不进行视图拖拽
+        return !this.getData('dragging') && !this.getData('enableFrameSelect');
     }
 
     /**
@@ -144,15 +151,5 @@ export class Move extends Interaction {
 
         return viewWindow;
     }
-
-    /**
-     * 重置所有数据
-     */
-    reset() {
-        if(this.enableMove) {
-            this.enableMove = false;
-            this.interactionModel.setData('moving', false);
-            this.moveType = { hor: false, ver: false };
-        }
-    }
 }
+    

@@ -228,27 +228,44 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
         }
 
         if(typeof this.elementsOption === 'string') {
-            this.elementsOption = opt['element'];
+            this.elementsOption = opt.element;
         }
         else {
-            Util.merge(this.elementsOption, opt['element']);
+            Util.merge(this.elementsOption, opt.element);
         }
 
-        Util.merge(this.animationOption, opt['animation']);
-        Util.merge(this.interactionOption, opt['interaction']);
-        Util.extends(this.layoutOption, opt['layout']);
+        Util.merge(this.animationOption, opt.animation);
+        Util.extends(this.layoutOption, opt.layout);
 
-        //  修改配置后，更新一次视图
-        if(this.sources) {
-            this.updateEngine(this.sources);
-        }
+        // 覆盖交互配置
+        if(opt.interaction && this.interactionOption) {
+            Object.keys(opt.interaction).forEach(key => {
+                this.interactionOption[key] = opt.interaction[key];
+            });
 
-        // 根据配置应用交互模块
-        if(this.interactionOption) {
+            // 根据配置应用交互模块
             this.interactionModel.applyInteractions(this.interactionOption);
         }
 
         this.lastStringifyOptions = lastStringifyOptions;
+
+        // 第一次初始化时不更新视图
+        if(this.sources === null) {
+            return;
+        }
+
+        //  修改配置后，更新一次视图
+        // 若新配置项对 element（元素类型），link（连线类型）或 pointer（外部指针类型）有改动的话，更新整个引擎（因为有可能会发生结构改变）
+        if(opt.element || opt.layout.link || opt.layout.pointer) {
+            this.updateEngine(this.sources);
+            return;
+        }
+
+        // 否则进行单独视图更新
+        if(opt.layout) {
+            this.updateElement(this.dataModel.getElementList());
+            return;
+        }
     }
 
     /**

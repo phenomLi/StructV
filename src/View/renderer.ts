@@ -100,46 +100,45 @@ export class Renderer {
 
     /**
      * 根据图形的mountState渲染zrender图形
-     * @param shapeContainer 
+     * @param shapeList
      * @param removeList
      */
-    renderZrenderShapes(shapeContainer: shapeContainer, removeList: Shape[]) {
+    renderZrenderShapes(shapeList: Shape[], removeList: Shape[]) {
         let shape: Shape, i;
 
-        // 遍历shapeContainer中的图形
-        Object.keys(shapeContainer).map(shapeList => {
-            for(i = 0; i < shapeContainer[shapeList].length; i++) {
-                shape = shapeContainer[shapeList][i];
+        // 遍历shapeList中的图形
+        for(i = 0; i < shapeList.length; i++) {
+            shape = shapeList[i];
 
-                // 若图形状态为NEEDMOUNT，即需挂载
-                if(shape.mountState === mountState.NEEDMOUNT) {
-                    // 若zrender图形未创建，则创建zrender图形
-                    if(shape.zrenderShape === null) {
-                        shape.zrenderShape = shape.createZrenderShape();
-                    }
-                    else {
-                        // 文本图形特殊处理
-                        if(shape instanceof Text) {
-                            shape.updateText(shape.zrenderShape);
-                        }
-                    }
-                    // 将图形加入到全局图形容器
-                    this.globalShape.add(shape);
-                    // 在图形加入容器后，设置为隐藏，为淡入淡出动画做铺垫
-                    shape.updateZrenderShape('hide', false);
-                    // 修改挂载状态为已挂载
-                    shape.mountState = mountState.MOUNTED;
-                    // 设置图形可见性
-                    shape.visible = true;
-                    // 在 zrender 图形上记录该图形
-                    shape.zrenderShape.svShape = shape;
-                    shape.updateZrenderShape('show');
+            // 若图形状态为NEEDMOUNT，即需挂载
+            if(shape.mountState === mountState.NEEDMOUNT) {
+                // 若zrender图形未创建，则创建zrender图形
+                if(shape.zrenderShape === null) {
+                    shape.zrenderShape = shape.createZrenderShape();
                 }
-
-                // 设置叠层优先级
-                shape.zrenderShape.attr('z', shape.option.zIndex);
+                else {
+                    // 文本图形特殊处理
+                    if(shape instanceof Text) {
+                        shape.updateText(shape.zrenderShape);
+                    }
+                }
+                // 将图形加入到全局图形容器
+                this.globalShape.add(shape);
+                // 在图形加入容器后，设置为隐藏，为淡入淡出动画做铺垫
+                shape.updateZrenderShape('hide', false);
+                // 修改挂载状态为已挂载
+                shape.mountState = mountState.MOUNTED;
+                // 设置图形可见性
+                shape.visible = true;
+                shape.updateZrenderShape('show');
             }
-        });
+
+            // 将该图形实例添加到 zrender 图形上
+            shape.zrenderShape.svShape = shape;
+            // 设置叠层优先级
+            shape.zrenderShape.attr('z', shape.option.zIndex);
+        }
+        
 
         // 处理需要移除的图形
         removeList.length && removeList.map(shape => {
@@ -433,6 +432,13 @@ export class Renderer {
      */
     getContainerHeight(): number {
         return this.containerHeight;
+    }
+
+    /**
+     * 获取 zrender 实例
+     */
+    getZrender() {
+        return this.zr;
     }
 
     /**

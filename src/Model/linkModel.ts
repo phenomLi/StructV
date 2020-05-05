@@ -103,31 +103,10 @@ export class LinkModel {
             }
         });
 
-        // 初始化所有连线的开始/结束位置
-        this.initLinksPos();
         // 处理被取消的连线
         this.applyCanceledLink(elementList);
         // 将该批次连接对队列设为上一批连接对队列
         this.lastLinkPairs = this.linkPairs;
-    }
-
-    /**
-     * 根据配置项，更新连接图形
-     * @param elementList 
-     */
-    emitLinkShapes(elementList: Element[]) {
-        // 遍历连接对队列，进行元素间的连接绑定
-        for(let i = 0; i < elementList.length; i++) {
-            for(let j = 0; j < elementList[i].effectLinks.length; j++) {
-                let linkPair = elementList[i].effectLinks[j];
-                this.updateLink(linkPair, elementList[i]);
-
-                linkPair.linkShape.isDirty = true;
-                if(linkPair.labelShape) {
-                    linkPair.labelShape.isDirty = true;
-                } 
-            }
-        }
     }
 
 
@@ -221,6 +200,85 @@ export class LinkModel {
     }
 
     /**
+     * 设置连线位置
+     */
+    setLinksPos() {
+        for(let i = 0; i < this.linkPairs.length; i++) {
+            let linkPair = this.linkPairs[i],
+                linkShape = linkPair.linkShape,
+                element = linkPair.ele,
+                target = linkPair.target,
+                anchorPair = linkPair.anchorPair,
+                start, end;
+
+            // 若使用动态锚点，获取动态锚点
+            if(!linkPair.anchorPair) {
+                start = [element.x, element.y];
+                end = [target.x, target.y];
+            }
+            // 若已配置有连接点，使用连接点
+            else {
+                start = this.getAnchorPos(element, anchorPair[0]),
+                end = this.getAnchorPos(target, anchorPair[1]);
+            }
+            
+            // 若发现该连接有冲突，则进行处理，重新计算start，end坐标
+            [start, end] = this.anchorAvoid([start, end]);
+            linkPair.anchorPosPair = [start, end];
+
+            linkShape.start.x = start[0];
+            linkShape.start.y = start[1];
+            linkShape.end.x = end[0];
+            linkShape.end.y = end[1];
+        }
+    }
+
+    /**
+     * 更新连线位置
+     * @param linkPair
+     */
+    updateLinkPos(linkPair: LinkPair, effectElement: Element) {
+        let element = linkPair.ele,
+            target = linkPair.target,
+            linkShape = linkPair.linkShape,
+            labelShape = linkPair.labelShape,
+            dx = 0,
+            dy = 0;
+
+        // 若是动态锚点
+        if(!linkPair.anchorPair) {
+            let [start, end] = this.getDynamicAnchorPos(element, target);
+
+            linkShape.start.x = start[0];
+            linkShape.start.y = start[1];
+            linkShape.end.x = end[0];
+            linkShape.end.y = end[1];
+        }
+        else {
+            // 若连线受影响的是发出 element，更新连线起点
+            if(linkPair.ele === effectElement) {
+                dx = element.x - element.lastX, 
+                dy = element.y - element.lastY,
+                linkShape.start.x += dx;
+                linkShape.start.y += dy;
+            }
+
+            // 若连线受影响的是目标 element，更新连线终点
+            if(linkPair.target === effectElement) {
+                dx = target.x - target.lastX,
+                dy = target.y - target.lastY,
+                linkShape.end.x += dx;
+                linkShape.end.y += dy;
+            }
+        }
+
+        // 若有标签，标签避让检测
+        if(labelShape) {
+            this.labelAvoid(labelShape, linkShape, [0, 1], 0);
+        }
+    }
+
+    /**
      * 由source中的连接字段获取真实的连接目标元素
      * @param elements
      * @param emitElement
@@ -253,72 +311,7 @@ export class LinkModel {
         }
     }
 
-    /**
-     * 计算连线的初始坐标
-     */
-    private initLinksPos() {
-        for(let i = 0; i < this.linkPairs.length; i++) {
-            let linkPair = this.linkPairs[i],
-                linkShape = linkPair.linkShape,
-                element = linkPair.ele,
-                target = linkPair.target,
-                anchorPair = linkPair.anchorPair,
-                start, end;
-
-            // 若使用动态锚点，获取动态锚点
-            if(!linkPair.anchorPair) {
-                [start, end] = this.getDynamicAnchorPos(element, target);
-            }
-            // 若已配置有连接点，使用连接点
-            else {
-                start = this.getAnchorPos(element, anchorPair[0]),
-                end = this.getAnchorPos(target, anchorPair[1]);
-            }
-            
-            // 若发现该连接有冲突，则进行处理，重新计算start，end坐标
-            [start, end] = this.anchorAvoid([start, end]);
-            linkPair.anchorPosPair = [start, end];
-
-            linkShape.start.x = start[0];
-            linkShape.start.y = start[1];
-            linkShape.end.x = end[0];
-            linkShape.end.y = end[1];
-        }
-    }
-
-    /**
-     * 连接两结点
-     * @param linkPair
-     */
-    private updateLink(linkPair: LinkPair, effectElement: Element) {
-        let element = linkPair.ele,
-            target = linkPair.target,
-            linkShape = linkPair.linkShape,
-            labelShape = linkPair.labelShape,
-            dx = 0,
-            dy = 0;
-
-        // 若连线受影响的是发出 element，更新连线起点
-        if(linkPair.ele === effectElement) {
-            dx = element.x - element.lastX, 
-            dy = element.y - element.lastY,
-            linkShape.start.x += dx;
-            linkShape.start.y += dy;
-        }
-
-        // 若连线受影响的是目标 element，更新连线终点
-        if(linkPair.target === effectElement) {
-            dx = target.x - target.lastX,
-            dy = target.y - target.lastY,
-            linkShape.end.x += dx;
-            linkShape.end.y += dy;
-        }
-
-        // 若有标签，标签避让检测
-        if(labelShape) {
-            this.labelAvoid(labelShape, linkShape, [0, 1], 0);
-        }
-    }
+    
 
     /**
      * 获取锚点对（[源元素锚点， 目标元素锚点]）
@@ -449,8 +442,8 @@ export class LinkModel {
         center = line.pointAt(middlePercent);
 
         // 设置标签位置为线段中点
-        label.x = center[0] - label.width / 2;
-        label.y = center[1] - label.height / 2;
+        label.x = center[0] - label.width;
+        label.y = center[1] - label.height;
 
         for(j = 0; j < this.labelList.length; j++) {
             if(label !== this.labelList[j] && Bound.isOverlap(label.getBound(), this.labelList[j].getBound())) {

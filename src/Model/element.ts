@@ -31,8 +31,12 @@ export class Element<T extends SourceElement = SourceElement> {
     lastY: number = 0;
     shape: Shape = null;
     layoutOption: LayoutOption;
+    // 连带影响的连线
     effectLinks: LinkPair[] = [];
+    // 连带影响的外部指针
     effectRefer: PointerPair = null;
+    // 该 element 是否已经被遗弃（一次更新完成后）
+    isObsolete: boolean = false;
 
     [key: string]: any;
 

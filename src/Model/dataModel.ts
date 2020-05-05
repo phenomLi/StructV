@@ -84,8 +84,20 @@ export class DataModel {
             elements = elements['element'];
         }
 
-        // 调用自定义布局函数
+        // 调用自定义布局函数对所有 element 进行布局
         layoutFn(elements, containerWidth, containerHeight);
+
+        // 设置所有连线的开始/结束位置
+        this.linkModel.setLinksPos();
+
+        // 设置所有外部指针的开始/结束位置
+        this.pointerModel.setRefersPos();
+
+        // 更新 last
+        this.elementList.forEach(item => {
+            item.lastX = item.x;
+            item.lastY = item.y;
+        });
     }
 
     /**
@@ -99,24 +111,40 @@ export class DataModel {
             let element = elementList[i],
                 shape = element.shape;
 
+            // 跳过过时的 element
+            if(element.isObsolete) {
+                continue;
+            }
+
             shape.x = element.x;
             shape.y = element.y;
             shape.width = element.width;
             shape.height = element.height;
             shape.rotation = element.rotation;
-
+            shape.style = element.style;
             shape.isDirty = true;
-        }
 
-        // 若声明连接，则进行连接绑定
-        this.linkModel.emitLinkShapes(elementList);
-        
-        // 若存在指针，则处理指针
-        this.pointerModel.emitPointerShapes(elementList);
+            for(let j = 0; j < element.effectLinks.length; j++) {
+                let linkPair = element.effectLinks[j];
+                this.linkModel.updateLinkPos(linkPair, element);
 
-        // 更新 lastX 和 lastY
-        for(let i = 0; i < elementList.length; i++) {
-            let element = elementList[i];
+                linkPair.linkShape.isDirty = true;
+                if(linkPair.labelShape) {
+                    linkPair.labelShape.isDirty = true;
+                } 
+            }
+
+            if(element.effectRefer) {
+                let pointerPair = element.effectRefer;
+
+                this.pointerModel.updateReferPos(pointerPair);
+
+                pointerPair.pointerShape.isDirty = true;
+                pointerPair.labelShapes.forEach(item => {
+                    item.isDirty = true;
+                });
+            }
+
             element.lastX = element.x;
             element.lastY = element.y;
         }
@@ -264,6 +292,11 @@ export class DataModel {
      * @param shapeContainer 
      */
     resetData() {
+        // 将所有 element 设置为过时
+        this.elementList.forEach(item => {
+            item.isObsolete = true;
+        });
+
         this.elementList.length = 0;
         this.elementContainer = {};
 

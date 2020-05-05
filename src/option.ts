@@ -61,15 +61,15 @@ export interface LayoutOption {
 // 交互配置项
 export interface InteractionOption {
     // 允许鼠标滚轮缩放视图
-    wheelScale: [number, number] | boolean;
-    // 允许拖拽视图
-    dragView: boolean;
+    zoomView: [number, number] | boolean;
+    // 允许鼠标左键拖拽视图
+    moveView: boolean;
     // 允许鼠标拖拽元素
     drag: boolean | string[];
-    // 允许鼠标 hover 元素
-    hover: { [key: string]: () => BaseShapeOption };
     // 允许鼠标 点击元素
-    focus: { [key: string]: () => BaseShapeOption };
+    focus: Partial<Style> | false;
+    // 框选功能
+    frameSelect: Partial<Style>;
 }
 
 // 动画配置项

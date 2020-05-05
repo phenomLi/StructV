@@ -13,24 +13,29 @@ export class Zoom extends Interaction {
     // 最小缩放值
     minZoomValue: number = 0.25;
 
-    apply(zoomRange: [number, number] | boolean) {
+    init() {
+        let zoomRange = this.optionValue as [number, number] | true,
+            container = this.renderer.getContainer();
+
         // 自定义缩放限制值
         if(Array.isArray(zoomRange)) {
             this.clampZoomRange(zoomRange);
         }
         
-        this.container.addEventListener('wheel', wheelEvent => this.emitEvent('wheel', wheelEvent));
+        container.addEventListener('mousewheel', wheelEvent => this.emitTrigger(wheelEvent));
     }
 
-    update(zoomRange: [number, number] | boolean) {
+    update() {
+        let zoomRange = this.optionValue as [number, number] | true;
+
         // 自定义缩放限制值
         if(Array.isArray(zoomRange)) {
             this.clampZoomRange(zoomRange);
         }
     }
 
-    response(wheelDelta: 1 | -1) {
-        if(this.interactionModel.getData('moving')) return;
+    handler(wheelDelta: 1 | -1): true {
+        if(this.getData('moving')) return;
 
         let globalShape = this.renderer.getGlobalShape(),
             [ scaleX, scaleY ] = globalShape.getScale();
@@ -43,14 +48,16 @@ export class Zoom extends Interaction {
         scaleY = Util.clamp(scaleY, this.maxZoomValue, this.minZoomValue);
 
         globalShape.scale(scaleX, scaleY);
+
+        return true;
     }
 
     /**
      * 鼠标滚轮事件
      * @param event 
      */
-    wheel(event: WheelEvent) {
-        this.handle(event['wheelDelta'] > 0? 1: -1);
+    trigger(event: WheelEvent) {
+        this.emitHandler(event['wheelDelta'] > 0? 1: -1);
     }
 
     /**

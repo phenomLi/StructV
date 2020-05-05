@@ -34,7 +34,7 @@ export class Reconciler {
      */
     reconcileStyle(oldStyle: Style, newStyle: Style): {name: string, old: any, new: any }[] {
         let styleName: {name: string, old: any, new: any }[] = [];
-
+        
         Object.keys(newStyle).map(prop => {
             if(newStyle[prop] !== oldStyle[prop]) {
                 styleName.push({
@@ -219,7 +219,7 @@ export class Reconciler {
                 }
 
                 case patchType.STYLE: {
-                    oldShape.prevStyle = newShape.style;
+                    oldShape.prevStyle = JSON.parse(JSON.stringify(newShape.style));
                     oldShape.updateZrenderShape('style');
                     break;
                 }

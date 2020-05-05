@@ -5,8 +5,7 @@ import { GlobalShape } from "../View/globalShape";
 
 
 interface DraggableShapeInfo {
-    ele: Element;
-    zrenderShape: zrenderShape;
+    element: Element;
     lastX: number;
     lastY: number;
 }
@@ -14,99 +13,109 @@ interface DraggableShapeInfo {
 
 export class Drag extends Interaction {
     private draggableShapes: { [key: string]: DraggableShapeInfo } = {};
-    private removeDraggableShapes: zrenderShape[] = [];
-
-    private enableMove: boolean = false;
-    private curDraggableShape: DraggableShapeInfo = null;
+    private curDraggableShapes: DraggableShapeInfo[] = [];
     private globalShape: GlobalShape;
 
     /**
      * 处理图形的 drag 事件
      * - 因为 zrender 的 drag 无法获取坐标，因此不能用内置的 drag，需要自己造
-     * - 又因为 zrender 图形可以响应普通鼠标事件（click，onmousemove， onmousedown 等），因此可以对图形模拟 drag
-     * @param shape 
-     * @param draggable 
-     * @param fn
+     * - 又因为 zrender 图形可以响应普通鼠标事件（click，onmousemove， onmousedown 等），因此可以 contain 函数对图形模拟 drag
+     * @param draggableList
      */
-    apply(enableDrag: string[] | true) {
-        let zrenderShapes = this.getDraggableZrenderShape(this.elementList, enableDrag);
+    init() {
+        let container = this.renderer.getContainer();
 
-        zrenderShapes.forEach(sub => {
-            sub.on('mousedown', event => this.emitEvent('mouseDown', event));
+        this.zr.on('mousedown', mouseEvent => this.emitTrigger(mouseEvent));
+        container.addEventListener('mousemove', mouseEvent => {
+            let x = mouseEvent.offsetX,
+                y = mouseEvent.offsetY;
+
+            this.emitHandler({ x, y });
         });
-        
-        this.container.addEventListener('mousemove', mouseEvent => this.emitEvent('mouseMove', mouseEvent));
-        this.container.addEventListener('mouseup', mouseEvent => this.emitEvent('mouseUp', mouseEvent));
+        this.zr.on('mouseup', () => this.emitFinish());
         this.globalShape = this.renderer.getGlobalShape();
     }
 
-    update(enableDrag: string[] | true) { }
+
+    trigger(event) {
+        let x = event.offsetX,
+            y = event.offsetY,
+            draggableList = this.optionValue,
+            selectedElements = this.getData('selectedElements') as Element[],
+            targetElements: Element[] = [];
+
+        if(selectedElements) {
+            targetElements = Array.isArray(draggableList)? selectedElements.filter(item => {
+                return draggableList.find(name => name === item.name)
+            }): selectedElements;
+        }
+        else {
+            let targetShape = event.topTarget,
+                element: Element = targetShape? targetShape.svShape.element: null;
+                
+            // 没有选中任何图形，退出
+            if(targetShape === null || targetShape === undefined || element === null) {
+                return;
+            }
+
+            // 若选中的图形的 element 不是设定的可拖拽 element，退出
+            if(Array.isArray(draggableList) && draggableList.find(name => name === element.name) === undefined) {
+                return;
+            }
+            
+            targetElements = [element];
+        }
+
+        targetElements.forEach(item => {
+            if(this.draggableShapes[item.elementId] === undefined) {
+                this.draggableShapes[item.elementId] = {
+                    lastX: 0,
+                    lastY: 0,
+                    element: null
+                };
+            }
+
+            this.draggableShapes[item.elementId].lastX = x;
+            this.draggableShapes[item.elementId].lastY = y;
+            this.draggableShapes[item.elementId].element = item;
+            this.curDraggableShapes.push(this.draggableShapes[item.elementId]);
+        });
+
+        this.setData('dragging', true);
+    }
     
-    response(param): Element[] {
-        let dx = param.x - this.curDraggableShape.lastX,
-            dy = param.y - this.curDraggableShape.lastY,
-            ele = this.curDraggableShape.ele,
+    handler(event): Element[] {
+        if(!this.getData('dragging')) {
+            return;
+        }
+
+        let x = event.x,
+            y = event.y,
             scale = this.globalShape.getScale();
 
-        ele.x += dx / scale[0];
-        ele.y += dy / scale[1];
-        this.curDraggableShape.lastX = param.x;
-        this.curDraggableShape.lastY = param.y;
+        for(let i = 0; i < this.curDraggableShapes.length; i++) {
+            let cur = this.curDraggableShapes[i],
+                dx = x - cur.lastX,
+                dy = y - cur.lastY,
+                ele = cur.element;
 
-        return [ele];
-    }
-
-    /**
-     * 鼠标点按事件
-     * @param event 
-     * @param ele
-     */
-    mouseDown(event: any, ele: Element) {
-        let targetShape = event.target.parent || event.target,
-            mouseEvent: MouseEvent = event.event;
-
-        if(this.draggableShapes[targetShape.id] === undefined) {
-            this.draggableShapes[targetShape.id] = {
-                lastX: 0,
-                lastY: 0,
-                zrenderShape: null,
-                ele: null
-            };
+            ele.x += dx / scale[0];
+            ele.y += dy / scale[1];
+            cur.lastX = x;
+            cur.lastY = y;
         }
 
-        this.curDraggableShape = this.draggableShapes[targetShape.id];
-
-        this.enableMove = true;
-        this.curDraggableShape.zrenderShape = targetShape;
-        this.curDraggableShape.ele = targetShape.svShape.element;
-        this.curDraggableShape.lastX = mouseEvent.clientX;
-        this.curDraggableShape.lastY = mouseEvent.clientY;
-
-        //this.interactionModel.setData('moving', true);
+        return this.curDraggableShapes.map(item => item.element);
     }
 
-    /**
-     * 鼠标移动事件
-     * @param event 
-     */
-    mouseMove(event: MouseEvent) {
-        if(this.enableMove) {
-            this.handle({
-                x: event.clientX,
-                y: event.clientY
-            });
-        }
 
-        
+    finish() {
+        this.curDraggableShapes.length = 0;
+        this.setData('dragging', false);
     }
 
-    /**
-     * 鼠标松开事件
-     * @param event 
-     */
-    mouseUp(event: MouseEvent) {
-        this.enableMove = false;
-        this.curDraggableShape = null;
+    triggerCondition() {
+        return !this.getData('enableFrameSelect');
     }
 
     /**
@@ -128,14 +137,5 @@ export class Drag extends Interaction {
         }
 
         return elements.map(item => item.shape.zrenderShape);
-    }
-
-    /**
-     * 查看一个点是否落在可拖拽的图形内部
-     * @param x
-     * @param y
-     */
-    isPointInDraggableShape(x: number, y: number): boolean {
-        return false;
     }
 }
