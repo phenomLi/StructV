@@ -87,7 +87,7 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
         
         this.elementsOption = engineInfo.defaultOption.element;
         this.layoutOption = engineInfo.defaultOption.layout as LayoutOption;
-        this.interactionOption = engineInfo.defaultOption.interaction as InteractionOption;
+        this.interactionOption = (engineInfo.defaultOption.interaction || {}) as InteractionOption;
         Util.merge(this.animationOption, engineInfo.defaultOption.animation);
 
         // 若有自定义Element，注册
@@ -115,9 +115,7 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
         this.sourcesProxy = new SourcesProxy(this);
 
         // 根据配置应用交互模块
-        if(this.interactionOption) {
-            this.interactionModel.applyInteractions(this.interactionOption);
-        }
+        this.interactionModel.applyInteractions(this.interactionOption);
     }
 
     /**
@@ -227,11 +225,13 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
             return;
         }
 
-        if(typeof this.elementsOption === 'string') {
-            this.elementsOption = opt.element;
-        }
-        else {
-            Util.merge(this.elementsOption, opt.element);
+        if(opt.element) {
+            if(typeof this.elementsOption === 'string') {
+                this.elementsOption = opt.element;
+            }
+            else {
+                Util.merge(this.elementsOption, opt.element);
+            }
         }
 
         Util.merge(this.animationOption, opt.animation);
@@ -255,15 +255,22 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
         }
 
         //  修改配置后，更新一次视图
-        // 若新配置项对 element（元素类型），link（连线类型）或 pointer（外部指针类型）有改动的话，更新整个引擎（因为有可能会发生结构改变）
-        if(opt.element || opt.layout.link || opt.layout.pointer) {
+        // 若新配置项对 element（元素类型），更新整个引擎（因为有可能会发生结构改变）
+        if(opt.element) {
             this.updateEngine(this.sources);
             return;
         }
 
         // 否则进行单独视图更新
         if(opt.layout) {
-            this.updateElement(this.dataModel.getElementList());
+            // link（连线类型）或 pointer（外部指针类型）有改动的话，更新整个引擎（因为有可能会发生结构改变）
+            if(opt.layout.link || opt.layout.pointer) {
+                this.updateEngine(this.sources);
+            }
+            else {
+                this.updateElement(this.dataModel.getElementList());
+            }
+
             return;
         }
     }

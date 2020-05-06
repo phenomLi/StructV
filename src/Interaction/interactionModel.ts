@@ -6,7 +6,6 @@ import { Drag } from "./drag";
 import { Focus } from "./focus";
 import { Engine } from "../engine";
 import { Zone } from "./zone";
-import { Element } from "../Model/element";
 
 
 
@@ -54,8 +53,10 @@ export class InteractionModel {
 
                 // 值直接为 false
                 if(!interactionOption[key]) {
-                    this.interactionMap[key].disable();
-                    delete this.interactionMap[key];
+                    this.interactionMap[key].toggleEnable(false);
+                }
+                else {
+                    this.interactionMap[key].toggleEnable(true);
                 }
             }
         });
@@ -75,7 +76,7 @@ export class InteractionModel {
      * @param param 
      */
     trigger(interactionName: string, param?: any) {
-        if(this.interactionMap[interactionName]) {
+        if(this.interactionMap[interactionName] && this.interactionMap[interactionName].isEnable) {
             this.interactionMap[interactionName].trigger(param);
         }
     }
@@ -87,7 +88,7 @@ export class InteractionModel {
      */
     handler(interactionName: string, param?: any) {
         // 正在更新视图时或者交互模块不存在时不执行
-        if(this.engine.isViewUpdating() === false && this.interactionMap[interactionName]) {
+        if(this.engine.isViewUpdating() === false && this.interactionMap[interactionName] && this.interactionMap[interactionName].isEnable) {
             let value = this.interactionMap[interactionName].handler(param);
 
             if(value === false || value === undefined) {
@@ -104,7 +105,7 @@ export class InteractionModel {
      * @param param 
      */
     finish(interactionName: string, param?: any) {
-        if(this.interactionMap[interactionName]) {
+        if(this.interactionMap[interactionName] && this.interactionMap[interactionName].isEnable) {
             this.interactionMap[interactionName].finish(param);
         }
     }

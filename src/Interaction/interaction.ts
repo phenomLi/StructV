@@ -15,8 +15,9 @@ export class Interaction {
     protected engine: Engine;
     protected renderer: Renderer;
     protected zr;
-    protected isEnable: boolean;
     protected optionValue: any;
+
+    isEnable: boolean;
 
     constructor(name: string, interactionModel: InteractionModel, engine: Engine) {
         this.name = name;
@@ -76,7 +77,9 @@ export class Interaction {
      * @param param 
      */
     protected emitHandler(param?: any) {
-        this.interactionModel.handler(this.name, param);
+        if(this.isEnable) {
+            this.interactionModel.handler(this.name, param);
+        }
     }
 
     /**
@@ -94,7 +97,9 @@ export class Interaction {
      * @param param 
      */
     protected emitFinish(param?: any) {
-        this.finish(param);
+        if(this.isEnable) {
+            this.finish(param);
+        }
     }
 
     /**
@@ -115,9 +120,10 @@ export class Interaction {
     }
 
     /**
-     * 关闭交互
+     * 开启/关闭交互
+     * @param isEnable
      */
-    disable() {
-        this.isEnable = true;
+    toggleEnable(isEnable: boolean) {
+        this.isEnable = isEnable;
     }
 }

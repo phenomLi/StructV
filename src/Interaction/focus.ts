@@ -16,16 +16,10 @@ export class Focus extends Interaction {
     init() {
         this.zr.on('mousedown', mouseEvent => this.emitTrigger(mouseEvent));
     }
-    
-    update() {
-        if(this.getData('enableFrameSelect')) {
-            this.disable();
-        }
-    }
 
     trigger(event) {
         let selectedElements = this.getData('selectedElements') as Element[];
-            
+
         if(selectedElements) {
             this.emitHandler(selectedElements);
         }

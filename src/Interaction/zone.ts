@@ -46,7 +46,11 @@ export class Zone extends Interaction {
 
     update() {
         if(this.optionValue === false || this.optionValue === undefined) {
+            this.restoreSelect();
             this.setData('enableFrameSelect', false);
+        }
+        else {
+            this.setData('enableFrameSelect', true);
         }
     }
 
@@ -60,6 +64,7 @@ export class Zone extends Interaction {
                 this.lastRectY = y;
                 this.enableMoveRect = true;
                 this.interactionModel.trigger('drag', { offsetX: x, offsetY: y });
+
                 return;
             }
             else {
@@ -102,6 +107,10 @@ export class Zone extends Interaction {
     }
 
     finish() {
+        if(!this.getData('enableFrameSelect')) {
+            return;
+        }
+
         if(this.frameSelecting) {
             if(this.finishSizing === false) {
                 let selectedElements = this.calcSelectedElements();
