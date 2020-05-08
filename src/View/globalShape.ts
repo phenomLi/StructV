@@ -49,15 +49,21 @@ export class GlobalShape {
 
     /**
      * 缩放
+     * - 每次缩放都要重新设置缩放原点
      * @param x 
      * @param y 
      * @param animation
      */
     scale(x: number, y: number, animation: boolean = false) {
-        let prop = {
-            scale: [x, y]
-        };
+        let [px, py] = this.getPosition(),
+            bound = this.getBound(),
+            originX = bound.x + bound.width / 2 - px,
+            originY = bound.y + bound.height / 2 - py,
+            prop = {
+                scale: [x, y]
+            };
 
+        this.setOrigin(originX, originY);    
         this.renderer.setAttribute(this.zrenderGroup, prop, animation);
     }
 
@@ -94,7 +100,10 @@ export class GlobalShape {
      * 获取包围盒
      */
     getBound(): BoundingRect {
-        return this.zrenderGroup.getBoundingRect();
+        let bound = this.zrenderGroup.getBoundingRect();
+        this.zrenderGroup.updateTransform();
+        bound.applyTransform(this.zrenderGroup.transform);
+        return bound;
     }
 
     /**

@@ -249,9 +249,10 @@ export class Renderer {
      * 根据 translate 和 scale 调整视图
      * @param translate 
      * @param scale 
+     * @param bound
      */
-    adjustGlobalShape(translate: [number, number] | 'auto', scale: [number, number] | 'auto') {
-        let globalBound = this.getGlobalBound(),
+    adjustGlobalShape(translate: [number, number] | 'auto', scale: [number, number] | 'auto', bound?: BoundingRect) {
+        let globalBound = bound || this.getGlobalBound(),
             isFirstRender = this.viewModel.isFirstRender;
 
         if(translate !== undefined) {
@@ -260,7 +261,7 @@ export class Renderer {
             }
 
             if(translate === 'auto') {
-                this.autoGlobalCenter(globalBound, !isFirstRender);
+                this.autoTranslate(globalBound, !isFirstRender);
             }
         }
 
@@ -277,7 +278,7 @@ export class Renderer {
             }
 
             if(scale === 'auto') {
-                this.autoGlobalSize(globalBound, !isFirstRender);
+                this.autoScale(globalBound, !isFirstRender);
             }
         }
     }
@@ -293,14 +294,13 @@ export class Renderer {
         if(this.viewModel.isViewUpdating) return;
 
         let targetWidth = option.width === 'auto'? this.container.offsetWidth: option.width,
-            targetHeight = option.height === 'auto'? this.container.offsetHeight: option.height;
+            targetHeight = option.height === 'auto'? this.container.offsetHeight: option.height,
+            bound = this.globalShape.getBound();
 
         // 容器尺寸没有发生变化，不执行操作
         if(targetWidth === this.containerWidth && targetHeight === this.containerHeight) {
             return;
         }
-
-        let position = this.globalShape.getPosition();
 
         this.viewModel.isViewUpdating = true;
         this.containerWidth = targetWidth;
@@ -309,12 +309,12 @@ export class Renderer {
         this.zr.resize(option);
 
         let newTranslate = [
-            this.containerWidth / 2 - (this.lastCenter[0] + position[0]),
-            this.containerHeight / 2 - (this.lastCenter[1] + position[1])
+            this.containerWidth / 2 - (bound.x + bound.width / 2),
+            this.containerHeight / 2 - (bound.y + bound.height / 2)
         ];
 
         // 调整视图
-        this.adjustGlobalShape(newTranslate as [number, number], scale);
+        this.adjustGlobalShape(newTranslate as [number, number], scale, bound);
         // 更新视图
         this.updateZrenderShapes();
     }
@@ -324,9 +324,8 @@ export class Renderer {
      * @param bound
      * @param enableAnimation
      */
-    autoGlobalCenter(bound: BoundingRect, enableAnimation: boolean = false) {
-        let position = this.globalShape.getPosition(),
-            isFirstRender = this.viewModel.isFirstRender,
+    autoTranslate(bound: BoundingRect, enableAnimation: boolean = false) {
+        let isFirstRender = this.viewModel.isFirstRender,
             cx = bound.x + bound.width / 2,
             cy = bound.y + bound.height / 2,
             dx, dy;
@@ -350,10 +349,10 @@ export class Renderer {
      * @param bound
      * @param enableAnimation 
      */
-    autoGlobalSize(bound: BoundingRect, enableAnimation: boolean = false) {
+    autoScale(bound: BoundingRect, enableAnimation: boolean = false) {
         let globalScale = this.globalShape.getScale(),
-            globalWidth = bound.width * globalScale[0],
-            globalHeight = bound.height * globalScale[1],
+            globalWidth = bound.width,
+            globalHeight = bound.height,
             maxEdge =  globalWidth > globalHeight? this.containerWidth: this.containerHeight,
             maxBoundEdge = globalWidth > globalHeight? globalWidth: globalHeight,
             dWidth = globalWidth - this.containerWidth,
