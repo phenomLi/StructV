@@ -22,6 +22,19 @@ export class Animations {
     }
 
     /**
+     * 位置动画
+     * @param shape 
+     */
+    position(shape: Shape) {
+        return { 
+            shape: {
+                x: -shape.width / 2,
+                y: -shape.height / 2
+            }
+        };
+    }
+
+    /**
      * 位移动画
      * @param shape
      */

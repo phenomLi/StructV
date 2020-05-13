@@ -1,7 +1,7 @@
 import { Engine } from "../engine";
 import { Renderer } from "./renderer";
 import { Reconciler } from "./reconciler";
-import { LayoutOption } from "../option";
+import { ViewOption, AnimationOption, BaseShapeOption } from "../option";
 import { Shape, mountState } from "../Shapes/shape";
 import { Util } from "../Common/util";
 import { Composite } from "../Shapes/composite";
@@ -24,8 +24,8 @@ export class ViewModel {
     private shapeList: Shape[] = [];
     // 移除图形队列。需要移除的图形将被放进这个列表
     private removeList: Shape[] = [];
-    // 布局配置项
-    private layoutOption: LayoutOption;
+    // 视图配置项
+    private viewOption: ViewOption;
     // 静态文本id
     public staticTextId: number = 0;
     // 渲染器
@@ -37,28 +37,32 @@ export class ViewModel {
 
     constructor(private engine: Engine, container: HTMLElement) {
         this.reconciler = new Reconciler(this);
-        this.layoutOption = engine.layoutOption;
-        this.renderer = new Renderer(container, this, engine.animationOption);
+        this.viewOption = engine.viewOption;
+        this.renderer = new Renderer(container, this, engine.viewOption.animation as AnimationOption);
     };
 
 
     /**
      * 图形工厂,创建Shape
      * @param id
-     * @param shapeName
+     * @param shapeValue
      * @param opt
-     * @param subShapeConfig
      */
-    createShape(id: string, shapeName: string, opt): Shape {
-        let shapeConstruct = Engine.ShapesTable[shapeName];
+    createShape(id: string, shapeValue: string | { new(...arg): Shape }, opt: Partial<BaseShapeOption>): Shape {
+        let shapeConstruct = null,
+            shapeName: string = null;
 
-        // 全局图形表没有，去私有表找
-        if(shapeConstruct === undefined) {
-            shapeConstruct = this.engine.scopedShapesTable[shapeName];
+        if(typeof shapeValue === 'string') {
+            shapeConstruct = Engine.ShapesTable[shapeValue];
+            shapeName = shapeValue;
+        }
+        else {
+            shapeConstruct = shapeValue;
+            shapeName = shapeConstruct.prototype.constructor.name.toLowerCase();
         }
 
         // 若都找不到图形，报错
-        Util.assert(shapeConstruct === undefined, '图形' + shapeName + ' 未注册！');
+        Util.assert(shapeConstruct === undefined, '图形 ' + shapeName + ' 未注册！');
 
         let shape = this.reuseShape(id, shapeName, opt);
         // 若没有找到复用的图形，则创建新图形
@@ -217,17 +221,12 @@ export class ViewModel {
             // 渲染（创建和销毁） zrender 图形实例
             this.renderer.renderZrenderShapes(this.shapeList, this.removeList);
             // 调整视图
-            this.renderer.adjustGlobalShape(this.layoutOption.translate, this.layoutOption.scale);
+            this.renderer.adjustGlobalShape(this.viewOption.position, this.viewOption.scale);
         }
 
         // 更新 zrender 图形实例
         this.renderer.updateZrenderShapes(() => {
             this.afterUpdate.call(this);
-        });
-
-        // 将所有脏图形重置
-        this.shapeList.forEach(item => {
-            item.isDirty = false;
         });
 
         // 取消首次渲染的标志

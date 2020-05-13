@@ -177,7 +177,7 @@ export class Zone extends Interaction {
     calcSelectedElements(): Element[] {
         let { x, y, width, height } = this.selectRect.getBoundingRect();
         
-        this.globalShape.zrenderGroup.updateTransform();
+        this.globalShape.getZrenderShape().updateTransform();
 
         return this.elementList.filter(item => {
             let zShape = item.shape.zrenderShape,

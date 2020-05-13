@@ -5,8 +5,8 @@ import { BoundingRect } from "./boundingRect";
 
 
 export class GlobalShape {
-    renderer: Renderer;
-    zrenderGroup: zrenderShape = null;
+    private renderer: Renderer = null;
+    private zrenderGroup: zrenderShape = null;
 
     constructor(renderer: Renderer) {
         this.renderer = renderer;
@@ -104,6 +104,13 @@ export class GlobalShape {
         this.zrenderGroup.updateTransform();
         bound.applyTransform(this.zrenderGroup.transform);
         return bound;
+    }
+
+    /**
+     * 获取 zrender 图形
+     */
+    getZrenderShape(): zrenderShape {
+        return this.zrenderGroup;
     }
 
     /**

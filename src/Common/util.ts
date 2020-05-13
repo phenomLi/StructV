@@ -23,14 +23,13 @@ export const Util = {
      * 扩展对象
      * @param origin 原对象 
      * @param ext 扩展的对象
-     * @param excludeProps 
      */
-    extends(origin, ext, excludeProps: string[] = []) {
+    extends(origin, ext) {
         if(ext === null || ext === undefined) return;
 
-        Object.keys(ext).map(prop => {
-            if(excludeProps.find(item => item === prop)) return;
+        if(typeof origin !== 'object' || Array.isArray(origin)) return;
 
+        Object.keys(ext).map(prop => {
             if(ext[prop] !== null && typeof ext[prop] === 'object' && !Array.isArray(ext[prop])) {
                 if(origin[prop] === undefined) {
                     origin[prop] = {};

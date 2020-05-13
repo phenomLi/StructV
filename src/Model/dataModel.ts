@@ -1,11 +1,12 @@
 import { Element } from "./element";
 import { Engine } from "../engine";
-import { Shape } from "../Shapes/shape";
+import { Shape, Style } from "../Shapes/shape";
 import { ViewModel } from "../View/viewModel";
 import { SourceElement, Sources } from "../sources";
 import { Util } from "../Common/util";
 import { LinkModel, anchor } from "./linkModel";
 import { PointerModel } from "./pointerModel";
+import { StructOption, BaseShapeOption } from "../option";
 
 
 
@@ -30,8 +31,8 @@ export class DataModel {
         this.engine = engine;
         this.viewModel = viewModel;
 
-        this.linkModel = new LinkModel(this, viewModel, this.engine.layoutOption);
-        this.pointerModel = new PointerModel(this, viewModel, this.engine.layoutOption);
+        this.linkModel = new LinkModel(this, viewModel, this.engine.viewOption.link);
+        this.pointerModel = new PointerModel(this, viewModel, this.engine.viewOption.pointer);
     }
 
     /**
@@ -63,10 +64,10 @@ export class DataModel {
         }
 
         // 构建连接模型
-        this.linkModel.constructLinks(this.elementContainer, this.elementList);
+        this.linkModel.constructLinks(this.engine.structOption.link, this.elementContainer, this.elementList);
     
         // 构建指针模型
-        this.pointerModel.constructPointers(this.elementList);
+        this.pointerModel.constructPointers(this.engine.structOption.pointer, this.elementList);
         
         //console.log(this.elementContainer);
     }
@@ -86,18 +87,47 @@ export class DataModel {
 
         // 调用自定义布局函数对所有 element 进行布局
         layoutFn(elements, containerWidth, containerHeight);
+    }
 
-        // 设置所有连线的开始/结束位置
-        this.linkModel.setLinksPos();
+    /**
+     * 构建连线和指针
+     */
+    drawComponents() {
+        for(let i = 0; i < this.elementList.length; i++) {
+            let element = this.elementList[i],
+                shapeOption = this.engine.viewOption.element, 
+                contents = null,
+                shapeName = null, 
+                shape: Shape = null;
 
-        // 设置所有外部指针的开始/结束位置
-        this.pointerModel.setRefersPos();
+            if(shapeOption.shape === undefined) {
+                shapeOption = shapeOption[element.name];
+            }
 
-        // 更新 last
-        this.elementList.forEach(item => {
-            item.lastX = item.x;
-            item.lastY = item.y;
-        });
+            contents = Array.isArray(shapeOption.content)? 
+                shapeOption.content.map(item => this.parserElementContent(element, item)):
+                this.parserElementContent(element, shapeOption.content as string);
+
+            // 若没有为一个 element 指定图形，报错
+            Util.assert(shapeName === undefined, `(${element.name}) 未指定 shape！`);
+
+            shapeName = shapeOption.shape;
+            shape = this.viewModel.createShape(element.elementId, shapeName, { ...shapeOption, content: contents });
+
+            // 利用 shape 初始化某些数据
+            Util.extends(shape.style, element.style);
+            element.style = shape.style;
+            element.shape = shape;
+            shape.element = element;
+
+            element.lastX = element.x;
+            element.lastY = element.y;
+        } 
+
+        // 绘制连线
+        this.linkModel.drawLinks();
+        // 绘制指针
+        this.pointerModel.drawPointers();
     }
 
     /**
@@ -121,11 +151,17 @@ export class DataModel {
             shape.width = element.width;
             shape.height = element.height;
             shape.rotation = element.rotation;
-            shape.style = element.style;
+            shape.style = element.style as Style;
             shape.isDirty = true;
 
             for(let j = 0; j < element.effectLinks.length; j++) {
                 let linkPair = element.effectLinks[j];
+
+                // 避免重复更新
+                if(linkPair.linkShape.isDirty) {
+                    continue;
+                }
+
                 this.linkModel.updateLinkPos(linkPair, element);
 
                 linkPair.linkShape.isDirty = true;
@@ -170,48 +206,47 @@ export class DataModel {
      * @param sourceElement
      */
     private createElement(sourceElement: SourceElement, elementName: string): Element {
-        let elementId = elementName + '#' + sourceElement.id,
-            ele: Element = null;
+        let elementStruct = this.engine.structOption.element,
+            eleConstructor = null,
+            elementId = elementName + '#' + sourceElement.id,
+            element: Element = null,
+            shapeOption = this.engine.viewOption.element;
 
-        let eleConstructor = this.engine.ElementsTable[elementName];
+        if(typeof elementStruct === 'object') {
+            eleConstructor = elementStruct[elementName];
+        } 
+        else {
+            eleConstructor = elementStruct;
+        }
 
         // 若没有声明元素，退回至基类Element
         if(eleConstructor === undefined) {
             eleConstructor = Element;
         }
         
-        ele = new eleConstructor(sourceElement);
-        ele.elementId = elementId;
-        ele.name = elementName;
+        element = new eleConstructor(sourceElement);
+        element.elementId = elementId;
+        element.name = elementName;
+        element.layoutOption = this.engine.viewOption.layout;
+
+        if(shapeOption.shape === undefined) {
+            shapeOption = shapeOption[element.name];
+        }
+
+        if(Array.isArray(shapeOption.size)) {
+            element.width = shapeOption.size[0];
+            element.height = shapeOption.size[1];
+        }
+        else {
+            element.width = element.height = shapeOption.size as number;
+        }
         
-        let shapeOption = null, 
-            contents = null,
-            shapeName = null, 
-            shape: Shape = null;
-
-        shapeOption = this.engine.layoutOption[elementName];
-        shapeName = typeof this.engine.elementsOption === 'object'?
-            this.engine.elementsOption[elementName]:
-            this.engine.elementsOption;
-
-        contents = Array.isArray(shapeOption.content)? 
-            shapeOption.content.map(item => this.parserElementContent(ele, item)):
-            this.parserElementContent(ele, shapeOption.content);
-
-        shape = this.viewModel.createShape(ele.elementId, shapeName, { ...shapeOption, content: contents });
-        
-        // 利用 shape 初始化 element 某些数据
-        ele.shape = shape;
-        ele.width = shape.width;
-        ele.height = shape.height;
-        ele.rotation = shape.rotation;
-        ele.style = shape.style;
-        ele.layoutOption = this.engine.layoutOption;
-        shape.element = ele;
+        element.rotation = shapeOption.rotation || 0;
+        element.anchors = shapeOption.anchors;
       
-        this.elementList.push(ele);
+        this.elementList.push(element);
 
-        return ele;
+        return element;
     }
 
     /**
@@ -266,9 +301,9 @@ export class DataModel {
             element: emitElement,
             target: targetElement,
             linkName,
-            sourceTarget: null,
             label: value? value.toString(): null,
-            anchorPair
+            anchorPair,
+            sourceLinkTarget: null
         });
     }
     

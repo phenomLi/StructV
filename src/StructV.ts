@@ -63,7 +63,7 @@ export const SV = {
         let engine = new engineConstruct(container);
 
         if(opt) {
-            engine.applyOptions(opt);
+            engine.applyOptions(opt, false);
         }
 
         return engine;

@@ -129,7 +129,8 @@ export class Shape {
     
     // 动画表
     animationsTable: { [key: string]: string } = {
-        position: 'translate',
+        position: 'position',
+        translate: 'translate',
         rotation: 'rotation',
         show: 'scale',
         hide: 'scale',
@@ -224,7 +225,7 @@ export class Shape {
         }
 
         if(this.name === 'circle' || this.name === 'isogon') {
-            this.width = this.height;
+            this.height = this.width;
         }
 
         if(opt.show) {
@@ -273,6 +274,12 @@ export class Shape {
             return originBound;
         }
     }
+
+    /**
+     * 当修改图形尺寸后需要对图形坐标进行修正
+     * @param animation
+     */
+    updateSize(animation: boolean) { }
 
     /**
      * 更新zrender图形

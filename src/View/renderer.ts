@@ -69,7 +69,7 @@ export class Renderer {
         this.containerWidth = container.offsetWidth;
         this.containerHeight = container.offsetHeight;
 
-        this.zr.add(this.globalShape.zrenderGroup);
+        this.zr.add(this.globalShape.getZrenderShape());
     }
 
     /**
@@ -247,21 +247,22 @@ export class Renderer {
 
     /**
      * 根据 translate 和 scale 调整视图
-     * @param translate 
+     * @param position 
      * @param scale 
      * @param bound
      */
-    adjustGlobalShape(translate: [number, number] | 'auto', scale: [number, number] | 'auto', bound?: BoundingRect) {
+    adjustGlobalShape(position: [number, number] | 'auto', scale: [number, number] | 'auto', bound?: BoundingRect) {
         let globalBound = bound || this.getGlobalBound(),
             isFirstRender = this.viewModel.isFirstRender;
 
-        if(translate !== undefined) {
-            if(Array.isArray(translate)) {
-                this.globalShape.translate(translate[0], translate[1], !isFirstRender);
+        if(position !== undefined) {
+            if(Array.isArray(position)) {
+                let [px, py] = this.globalShape.getPosition();
+                this.globalShape.translate(position[0] - px, position[1] - py, !isFirstRender);
             }
 
-            if(translate === 'auto') {
-                this.autoTranslate(globalBound, !isFirstRender);
+            if(position === 'auto') {
+                this.autoPosition(globalBound, !isFirstRender);
             }
         }
 
@@ -286,10 +287,10 @@ export class Renderer {
     /**
      * 重新整视图尺寸
      * @param option
-     * @param translate
+     * @param position
      * @param scale
      */
-    resizeGlobalShape(option: ResizeOption, translate: [number, number] | 'auto', scale: [number, number] | 'auto') {
+    resizeGlobalShape(option: ResizeOption, position: [number, number] | 'auto', scale: [number, number] | 'auto') {
         // 视图正在更新，不进行操作
         if(this.viewModel.isViewUpdating) return;
 
@@ -308,11 +309,7 @@ export class Renderer {
 
         this.zr.resize(option);
 
-        let newTranslate = [
-            this.containerWidth / 2 - (bound.x + bound.width / 2),
-            this.containerHeight / 2 - (bound.y + bound.height / 2)
-        ];
-
+        let newTranslate = [ this.containerWidth / 2, this.containerHeight / 2 ];
         // 调整视图
         this.adjustGlobalShape(newTranslate as [number, number], scale, bound);
         // 更新视图
@@ -324,7 +321,7 @@ export class Renderer {
      * @param bound
      * @param enableAnimation
      */
-    autoTranslate(bound: BoundingRect, enableAnimation: boolean = false) {
+    autoPosition(bound: BoundingRect, enableAnimation: boolean = false) {
         let isFirstRender = this.viewModel.isFirstRender,
             cx = bound.x + bound.width / 2,
             cy = bound.y + bound.height / 2,

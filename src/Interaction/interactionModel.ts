@@ -1,5 +1,5 @@
 import { Interaction } from "./interaction";
-import { InteractionOption } from "../option";
+import { InteractOption } from "../option";
 import { Zoom } from "./zoom";
 import { Move } from "./move";
 import { Drag } from "./drag";
@@ -16,7 +16,7 @@ import { Zone } from "./zone";
 export class InteractionModel {
     private engine: Engine;
     // 从交互配置项映射至交互模块的表
-    private interactionConstructorMap: { [key in keyof InteractionOption]: { new(...arg): Interaction} } = {
+    private interactionConstructorMap: { [key in keyof InteractOption]: { new(...arg): Interaction} } = {
         zoomView: Zoom,
         moveView: Move,
         drag: Drag,
@@ -37,11 +37,21 @@ export class InteractionModel {
      * 开启交互模块
      * @param interactionOption
      */
-    applyInteractions(interactionOption: InteractionOption) {
+    applyInteractions(interactionOption: InteractOption) {
         Object.keys(interactionOption).map(key => {
             if(this.interactionMap[key] === undefined) {
-                let interactionConstructor = this.interactionConstructorMap[key],
-                    interaction: Interaction = new interactionConstructor(key, this, this.engine);
+                if(!interactionOption[key]) {
+                    return;
+                }
+
+                let interactionConstructor = this.interactionConstructorMap[key];
+
+                // 如果根本没有名字为 [key] 的这个交互组件，跳过
+                if(interactionConstructor === undefined) {
+                    return;
+                }
+
+                let interaction: Interaction = new interactionConstructor(key, this, this.engine);
 
                 this.interactionMap[key] = interaction;
                 interaction.setOptionVal(interactionOption[key]);
@@ -95,7 +105,7 @@ export class InteractionModel {
                 return;
             }
 
-            this.engine.updateElement(Array.isArray(value)? value: []);
+            this.engine.updateElement(Array.isArray(value)? value: [], false);
         }
     }
 

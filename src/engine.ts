@@ -1,7 +1,7 @@
 import { ViewModel } from "./View/viewModel";
 import { Util } from "./Common/util";
 import { DataModel, ElementContainer } from "./Model/dataModel";
-import { LayoutOption, AnimationOption, EngineOption, ElementsOption, InteractionOption } from "./option";
+import { ViewOption, EngineOption, InteractOption, StructOption, DefaultLinkOption, DefaultPointerOption } from "./option";
 import { Sources, SourceElement } from "./sources";
 import { Shape, Style } from "./Shapes/shape";
 import { Element } from "./Model/element";
@@ -9,7 +9,6 @@ import { Group } from "./Model/group";
 import { anchor } from "./Model/linkModel";
 import { SourcesProxy } from "./Model/sourcesProxy";
 import { InteractionModel } from "./Interaction/interactionModel";
-import { Text } from "./Shapes/text";
 import { Renderer } from "./View/renderer";
 
 
@@ -18,10 +17,6 @@ import { Renderer } from "./View/renderer";
 export interface EngineInfo {
     // 引擎名称
     name: string;
-    // 元素构造器
-    element?: { new(...arg): Element } | { [key: string]: { new(...arg): Element } };
-    // 私有图形构造器
-    shape?: { [key: string]: { new(...arg): Shape } };
     // 默认配置项
     defaultOption: EngineOption;
 }
@@ -33,13 +28,13 @@ export interface ResizeOption {
 }
 
 
-export class Engine<S extends Sources = Sources, P extends EngineOption = EngineOption> {
+export class Engine {
     // 引擎id
     private id: string;
     // 引擎名称
-    public name: string = 'framework';
+    public name: string = 'engine';
     // 当前保存的源数据
-    private sources: S = null;
+    private sources: Sources = null;
     // 序列化的源数据
     private stringifySources: string = null;
     // 数据模型控制器
@@ -52,70 +47,65 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     private sourcesProxy: SourcesProxy = null;
     // 上一次输入的序列化之后的配置项
     private lastStringifyOptions: string = null;
+    // 用户的默认配置项
+    private defaultOption: EngineOption = null;
 
-    // Element构造函数容器，用作存放该引擎扩展的Element
-    ElementsTable: { [key: string]: { new(sourceElement: SourceElement): Element } } = {};
-    // 图形配置项
-    elementsOption: ElementsOption;
-    // 布局配置项
-    layoutOption: LayoutOption;
+    // 结构配置项
+    structOption: StructOption = {
+        element: Element,
+        link: [],
+        pointer: []
+    };
+
+    // 外观配置项
+    viewOption: ViewOption = {
+        element: { },
+        link: { },
+        pointer: { },
+        layout: { },
+        // 动画配置项
+        animation: {
+            enableSkip: true,
+            enableAnimation: true,
+            timingFunction: 'quinticOut',
+            duration: 1000
+        },
+        position: 'auto',
+        scale: 'auto'
+    };
+
     // 交互配置项
-    interactionOption: InteractionOption;
-    // 动画配置项
-    animationOption: AnimationOption = {
-        enableSkip: true,
-        enableAnimation: true,
-        timingFunction: 'quinticOut',
-        duration: 1000
+    interactOption: InteractOption = {
+        zoomView: true,
+        moveView: false,
+        drag: false,
+        focus: false,
+        frameSelect: false,
     };
 
     // 代理过的源数据
-    proxySources: S = null;
+    proxySources: Sources = null;
 
     // Shape构造函数容器，用作存放扩展的Shape（基本上为Composite）
-
     // 使用registerShape函数注册的图形将被存放在此处，任何子Engine都可访问到这些图形（全局）
     static ShapesTable: {[key: string]: { new(id: string, name: string, opt: any): Shape }} = {};
-    // 使用Engine的构造函数注册的图形将被存放在此处，只有注册该图形的Engine可访问到这些图形（私有）
-    scopedShapesTable: {[key: string]: { new(id: string, name: string, opt: any): Shape }} = {};
 
     constructor(container: HTMLElement, engineInfo: EngineInfo) {
         Util.assert(!container, 'HTML元素不存在');
 
         this.id = Util.generateId();
         this.name = engineInfo.name;
-        
-        this.elementsOption = engineInfo.defaultOption.element;
-        this.layoutOption = engineInfo.defaultOption.layout as LayoutOption;
-        this.interactionOption = (engineInfo.defaultOption.interaction || {}) as InteractionOption;
-        Util.merge(this.animationOption, engineInfo.defaultOption.animation);
-
-        // 若有自定义Element，注册
-        if(engineInfo.element) {   
-            // 只有一种元素
-            if(typeof engineInfo.element === 'function') {
-                engineInfo.element = {
-                    element: engineInfo.element
-                };
-            }
-
-            this.ElementsTable = engineInfo.element;
-        }
-
-        // 若有私有自定义图形，注册
-        if(engineInfo.shape) {
-            Object.keys(engineInfo.shape).map(name => {
-                this.scopedShapesTable[name] = engineInfo.shape[name];
-            });
-        }
 
         this.viewModel = new ViewModel(this, container);
         this.dataModel = new DataModel(this, this.viewModel);
         this.interactionModel = new InteractionModel(this);
         this.sourcesProxy = new SourcesProxy(this);
+        this.defaultOption = engineInfo.defaultOption;
 
-        // 根据配置应用交互模块
-        this.interactionModel.applyInteractions(this.interactionOption);
+        // 根据结构配置项初始化视图配置项的结构
+        this.initViewOption(engineInfo.defaultOption.struct);
+        // 应用默认配置
+        this.applyOptions(engineInfo.defaultOption, false);
     }
 
     /**
@@ -126,12 +116,38 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
         this.viewModel.resetData();
     }
 
+    /**
+     * 初始化视图配置项
+     * @param structOption 
+     */
+    private initViewOption(structOption: StructOption) {
+        if(structOption.element && typeof structOption.element === 'object') {
+            this.viewOption.element = {};
+            Object.keys(structOption.element).forEach(key => {
+                this.viewOption.element[key] = {};
+            })
+        }
+
+        // 初始化 struct 配置项声明的连线字段的默认配置项
+        if(structOption.link && Array.isArray(structOption.link)) {
+            structOption.link.forEach(key => {
+                this.viewOption.link[key] = new DefaultLinkOption();
+            });
+        }
+
+        // 初始化 struct 配置项声明的指针字段的默认配置项
+        if(structOption.pointer && Array.isArray(structOption.pointer)) {
+            structOption.pointer.forEach(key => {
+                this.viewOption.pointer[key] = new DefaultPointerOption();
+            });
+        }
+    }
 
     /**
-     * 整个引擎的主更新函数（发生结构改变）
+     * 整个可视化引擎的更新（发生结构改变，更新整个引擎）
      * @param sources 
      */
-    private updateEngine(sources: S) {
+    private updateEngine(sources: Sources) {
         // 重置数据
         this.reset();
 
@@ -143,6 +159,8 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
             this.viewModel.renderer.getContainerWidth(),
             this.viewModel.renderer.getContainerHeight()
         );
+        // 绘制元素，连线和指针
+        this.dataModel.drawComponents();
         // 根据绑定更新图形
         this.dataModel.updateShapes();
         // 对图形进行调和
@@ -152,14 +170,56 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     }
 
     /**
-     * 若干个 element 的更新函数（不发生结构改变）
+     * 可视化布局的更新（不发生结构改变，仅更新布局）
+     */
+    public updateLayout() {
+        // 根据逻辑关系布局元素
+        this.dataModel.layoutElements(
+            this.render.bind(this), 
+            this.viewModel.renderer.getContainerWidth(),
+            this.viewModel.renderer.getContainerHeight()
+        );
+        // 绘制元素，连线和指针
+        this.dataModel.drawComponents();
+        // 根据绑定更新图形
+        this.dataModel.updateShapes();
+        // 对图形进行调和
+        this.viewModel.reconciliation(true);
+        // 根据图形渲染视图
+        this.viewModel.renderShapes();
+    }
+
+    /**
+     * 可视化视图的更新（不发生结构改变，不重新布局，仅更新连线，指针和 element）
+     */
+    public updateView() {
+        // 绘制元素，连线和指针
+        this.dataModel.drawComponents();
+        // 根据绑定更新图形
+        this.dataModel.updateShapes();
+        // 对图形进行调和
+        this.viewModel.reconciliation(true);
+        // 根据图形渲染视图
+        this.viewModel.renderShapes();
+    }
+
+    /**
+     * 若干个 element 的更新（不发生结构改变，不重新布局，不改变连线和指针，仅更新某些 element）
      * @param elements 
      * @param enableAnimation 
      */
-    public updateElement(elements: Element[], enableAnimation: boolean = false) {
-        let defaultAnimation: boolean = this.animationOption.enableAnimation;
+    public updateElement(elements?: Element[], enableAnimation?: boolean) {
+        if(enableAnimation === undefined) {
+            enableAnimation = this.viewOption.animation.enableAnimation;
+        }
 
-        this.animationOption.enableAnimation = enableAnimation;
+        if(elements === undefined) {
+            elements = this.dataModel.getElementList();
+        }
+
+        let defaultAnimation: boolean = this.viewOption.animation.enableAnimation;
+
+        this.viewOption.animation.enableAnimation = enableAnimation;
 
         // 根据绑定更新图形
         this.dataModel.updateShapes(elements);
@@ -168,7 +228,7 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
         // 更新 zrender 图形实例
         this.viewModel.renderShapes(true);
 
-        this.animationOption.enableAnimation = defaultAnimation;
+        this.viewOption.animation.enableAnimation = defaultAnimation;
     }
 
     /**
@@ -177,9 +237,9 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
      * @param sources 
      * @param proxySources
      */
-    public source(sources?: S, proxySources: boolean = false): void | S {
+    public source(sources?: Sources, proxySources: boolean = false): void | Sources {
         // 如果正在执行视图更新，则取消该次动作（避免用户频繁点击）
-        if(!this.animationOption.enableSkip && this.viewModel.isViewUpdating) {
+        if(!this.viewOption.animation.enableSkip && this.viewModel.isViewUpdating) {
             return;
         }
         // 若不输入源数据而且之前也没有输入过源数据，则什么也不干
@@ -214,8 +274,9 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
     /**
      * 应用配置项
      * @param opt 
+     * @param updateView
      */
-    public applyOptions(opt: P) {
+    public applyOptions(opt: EngineOption, updateView: boolean = true) {
         // 配置项为 null 或为空对象不执行更新
         if(!opt || Object.keys(opt).length === 0) return;
 
@@ -225,52 +286,59 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
             return;
         }
 
-        if(opt.element) {
-            if(typeof this.elementsOption === 'string') {
-                this.elementsOption = opt.element;
-            }
-            else {
-                Util.merge(this.elementsOption, opt.element);
-            }
+        this.lastStringifyOptions = lastStringifyOptions;
+
+        // 覆盖结构配置
+        if(opt.struct) {
+            Util.extends(this.structOption, opt.struct);
         }
 
-        Util.merge(this.animationOption, opt.animation);
-        Util.extends(this.layoutOption, opt.layout);
+        // 覆盖视图配置
+        if(opt.view) {
+            Object.keys(opt.view).forEach(key => {
+                if(Array.isArray(this.viewOption[key]) || typeof this.viewOption[key] !== 'object') {
+                    this.viewOption[key] = opt.view[key];
+                }
+                else {
+                    Util.extends(this.viewOption[key], opt.view[key]);
+                }
+            });
+        }
 
         // 覆盖交互配置
-        if(opt.interaction && this.interactionOption) {
-            Object.keys(opt.interaction).forEach(key => {
-                this.interactionOption[key] = opt.interaction[key];
+        if(opt.interact) {
+            Object.keys(opt.interact).forEach(key => {
+                this.interactOption[key] = opt.interact[key];
             });
 
             // 根据配置应用交互模块
-            this.interactionModel.applyInteractions(this.interactionOption);
+            this.interactionModel.applyInteractions(this.interactOption);
         }
 
-        this.lastStringifyOptions = lastStringifyOptions;
-
-        // 第一次初始化时不更新视图
-        if(this.sources === null) {
+        // 第一次初始化时( updateView 为 false )不更新视图
+        if(updateView === false) {
             return;
         }
 
-        //  修改配置后，更新一次视图
-        // 若新配置项对 element（元素类型），更新整个引擎（因为有可能会发生结构改变）
-        if(opt.element) {
+        // 修改配置后，更新一次视图
+        // 若新配置项更新了可视化结构，则更新整个引擎
+        if(opt.struct) {
             this.updateEngine(this.sources);
             return;
         }
 
-        // 否则进行单独视图更新
-        if(opt.layout) {
-            // link（连线类型）或 pointer（外部指针类型）有改动的话，更新整个引擎（因为有可能会发生结构改变）
-            if(opt.layout.link || opt.layout.pointer) {
-                this.updateEngine(this.sources);
-            }
-            else {
-                this.updateElement(this.dataModel.getElementList());
+        // 否则进行视图更新
+        if(opt.view) {
+            if(opt.view.layout) {
+                this.updateLayout();
+                return;
             }
 
+            if(opt.view.element || opt.view.link || opt.view.pointer) {
+                this.updateView();
+                return;
+            }
+            
             return;
         }
     }
@@ -316,6 +384,13 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
      */
     public getName(): string {
         return this.name;
+    }
+
+    /**
+     * 获取默认配置项
+     */
+    public getDefaultOption(): EngineOption {
+        return this.defaultOption;
     }
 
     /**
@@ -383,7 +458,7 @@ export class Engine<S extends Sources = Sources, P extends EngineOption = Engine
             option.height = option.height || 'auto';
         }
 
-        this.viewModel.renderer.resizeGlobalShape(option, this.layoutOption.translate, this.layoutOption.scale);
+        this.viewModel.renderer.resizeGlobalShape(option, this.viewOption.position, this.viewOption.scale);
     }
 
 

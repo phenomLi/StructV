@@ -1,32 +1,47 @@
 import { ElementContainer, DataModel } from "./dataModel";
 import { Element } from "./element";
 import { LinkData, LinkTarget } from "../sources";
-import { LinkOption, LayoutOption } from "../option";
+import { LinkOption } from "../option";
 import { Util } from "../Common/util";
 import { ViewModel } from "../View/viewModel";
 import { Text } from "../Shapes/text";
 import { Bound } from "../View/boundingRect";
 import { Line } from "../SpecificShapes/line";
 import { Vector } from "../Common/vector";
-
+import { Style } from "../Shapes/shape";
 
 
 // 锚点类型
 export type anchor = ((w: number, h: number, o?: number) => [number, number]) | [number, number];
 export type anchorSet = { [key: number]: anchor };
 
-
+// 连线信息对象
 export interface LinkPair {
+    // 连线 id
     id: string;
-    linkName: string;
-    linkShape: Line;
-    ele: Element;
+    // 连线起始 element
+    element: Element;
+    // 连线目标 element
     target: Element;
+    // 连线类型名称
+    linkName: string;
+    // 连线图形实例
+    linkShape: Line;
+    // 保存连线图形实例的样式
+    linkShapeStyle: Partial<Style>;
+    // 连线两端锚点
     anchorPair: [anchor, anchor];
+    // 连线两端锚点真实世界坐标
     anchorPosPair: [number, number][];
-    label: string;
-    labelShape: Text;
+    // 连线序号
     index: number;
+    
+    // 连线标签
+    label: string;
+    // 连线标签图形实例
+    labelShape: Text;
+    // 连线在源数据的声明
+    sourceLinkTarget: LinkTarget;
 }
 
 
@@ -37,7 +52,6 @@ export interface LinkPair {
 export class LinkModel {
     private dataModel: DataModel;
     private viewModel: ViewModel;
-    private layoutOption: LayoutOption;
     private linkOptions: { [key: string]: Partial<LinkOption>};
 
     private lastLinkPairs: LinkPair[] = [];
@@ -45,29 +59,29 @@ export class LinkModel {
     private labelList: Text[] = [];
     private labelAvoidLevel: number = 2;
 
-    constructor(dataModel: DataModel, viewModel: ViewModel, layoutOption: LayoutOption) {
+    constructor(dataModel: DataModel, viewModel: ViewModel, linkOptions: { [key: string]: Partial<LinkOption>}) {
         this.dataModel = dataModel;
         this.viewModel = viewModel;
-        this.layoutOption = layoutOption;
-        this.linkOptions = this.layoutOption.link;
+        this.linkOptions = linkOptions;
     }
 
     /**
      * 构建连接模型
      * - 添加linkPair到linkPairs队列
      * - 将element中的源数据linkName字段（linkData类型）替换为真实element
+     * @param linkNames
      * @param elements
      * @param elementList 
-     * @param linkOptions 
      */
-    constructLinks(elements: ElementContainer, elementList: Element[]) {
+    constructLinks(linkNames: string[], elements: ElementContainer, elementList: Element[]) {
         // 没有连接信息，返回
-        if(!this.linkOptions) return;
+        if(linkNames.length === 0) return;
 
-        Object.keys(this.layoutOption.link).map(linkName => {
+        linkNames.forEach(linkName => {
             for(let i = 0; i < elementList.length; i++) {
                 let ele = elementList[i],
                     linkData: LinkData = ele[linkName],
+                    label = this.linkOptions[linkName].label,
                     target = null;
 
                 if(linkData === undefined || linkData === null) continue;
@@ -81,8 +95,9 @@ export class LinkModel {
                             target,
                             linkName,
                             anchorPair: null,
-                            sourceTarget: item,
-                            index
+                            label,
+                            index,
+                            sourceLinkTarget: item
                         });
                         
                         return target;
@@ -95,7 +110,8 @@ export class LinkModel {
                         target,
                         linkName,
                         anchorPair: null,
-                        sourceTarget: linkData
+                        label,
+                        sourceLinkTarget: linkData
                     });
                     
                     ele[linkName] = target;
@@ -118,62 +134,37 @@ export class LinkModel {
         element: Element;
         target: Element;
         linkName: string;
-        sourceTarget: LinkTarget,
         label?: string;
         index?: number;
         anchorPair?: [anchor, anchor];
+        sourceLinkTarget: LinkTarget;
     }) {
         if(linkInfo.target === null) return;
 
-        let element: Element = linkInfo.element, 
-            target: Element = linkInfo.target, 
-            id: string = `${element.elementId}-${target.elementId}`,
-            linkName: string = linkInfo.linkName, 
-            label = linkInfo.label || this.linkOptions[linkName].label,
-            sourceTarget = linkInfo.sourceTarget,
-            anchorPair: [anchor, anchor] = linkInfo.anchorPair, 
-            index: number = linkInfo.index,
-            linkOption = this.linkOptions[linkName],
-            linkShape = null,
-            labelShape = null;
+        let {
+            element,
+            target,
+            linkName,
+            label,
+            index,
+            anchorPair,
+            sourceLinkTarget
+        } = linkInfo;
 
-        if(anchorPair === null || anchorPair === undefined) {
-            anchorPair = this.getAnchorPair(element, target, linkName, index);
-        }
-
-        // 若锚点越界（如只有3个锚点，contact却有大于3的值），退出
-        if(anchorPair && (anchorPair[0] === undefined || anchorPair[1] === undefined)) {
-            return;
-        }
-
-        linkShape = this.viewModel.createShape(id, 'line', linkOption) as Line;
-        label = this.labelSolver(label, sourceTarget);
-        
-        if(label) {
-            labelShape = this.viewModel.createShape(
-                `${element.elementId}-${target.elementId}-label`,
-                'text',
-                {
-                    show: linkOption.show,
-                    content: label,
-                    style: linkOption.labelStyle
-                }
-            );
-
-            this.labelList.push(labelShape);
-        }
-
-        let linkPair = {
+        let id: string = `${element.elementId}-${target.elementId}`,
+            linkPair = {
             id,
             linkName,
-            linkShape,
-            ele: element,
+            linkShape: null,
+            element,
             target,
             anchorPair,
             anchorPosPair: null,
             label,
-            labelShape,
-            index
+            labelShape: null,
+            index,
+            linkShapeStyle: {},
+            sourceLinkTarget
         };
 
         // 添加一个linkPair到linkPairs队列
@@ -183,16 +174,15 @@ export class LinkModel {
         element.effectLinks.push(linkPair);
         target.effectLinks.push(linkPair);
 
-
         // 响应onLink钩子函数
         element.onLinkTo(target, {
-            style: linkShape.style, 
+            style: linkPair.linkShapeStyle, 
             name: linkName, 
             index,
             label
         });
         target.onLinkFrom(element, {
-            style: linkShape.style, 
+            style: linkPair.linkShapeStyle, 
             name: linkName, 
             index,
             label
@@ -200,21 +190,56 @@ export class LinkModel {
     }
 
     /**
-     * 设置连线位置
+     * 绘制连线
      */
-    setLinksPos() {
+    drawLinks() {
         for(let i = 0; i < this.linkPairs.length; i++) {
             let linkPair = this.linkPairs[i],
-                linkShape = linkPair.linkShape,
-                element = linkPair.ele,
-                target = linkPair.target,
-                anchorPair = linkPair.anchorPair,
+                { id, element, target, linkName, anchorPair, index, linkShapeStyle } = linkPair,
+                linkOption = this.linkOptions[linkName],
+                linkShape = null,
+                labelShape = null,
                 start, end;
 
-            // 若使用动态锚点，获取动态锚点
-            if(!linkPair.anchorPair) {
-                start = [element.x, element.y];
-                end = [target.x, target.y];
+            // -------------------------------- 处理连线标签 -------------------------------------
+
+            linkPair.label = this.labelSolver(linkPair.label, linkPair.sourceLinkTarget);
+
+            // 对连线标签进行字符串解析，并创建标签图形实例
+            if(linkPair.label) {
+                labelShape = this.viewModel.createShape(
+                    `${element.elementId}-${target.elementId}-label`,
+                    'text',
+                    {
+                        show: linkOption.show,
+                        content: linkPair.label,
+                        style: linkOption.labelStyle
+                    }
+                );
+
+                this.labelList.push(labelShape);
+
+                linkPair.labelShape = labelShape;
+            }
+
+            // -------------------------------- 处理连线 -------------------------------------
+
+            //  创建连线图形实例
+            linkShape = this.viewModel.createShape(id, 'line', linkOption) as Line;
+            Util.extends(linkShape.style, linkShapeStyle);
+
+            if(anchorPair === null || anchorPair === undefined) {
+                anchorPair = this.getAnchorPair(element, target, linkName, index);
+            }
+
+            // 若锚点越界（如只有3个锚点，contact却有大于3的值），退出
+            if(anchorPair && (anchorPair[0] === undefined || anchorPair[1] === undefined)) {
+                continue;
+            }
+
+            // 若使用动态锚点，获取动态锚点（没有在配置项中指定锚点）
+            if(!anchorPair) {
+                [start, end] = this.getDynamicAnchorPos(element, target);
             }
             // 若已配置有连接点，使用连接点
             else {
@@ -224,12 +249,16 @@ export class LinkModel {
             
             // 若发现该连接有冲突，则进行处理，重新计算start，end坐标
             [start, end] = this.anchorAvoid([start, end]);
-            linkPair.anchorPosPair = [start, end];
-
+            
+            // 设定联系图形的起始和结束坐标
             linkShape.start.x = start[0];
             linkShape.start.y = start[1];
             linkShape.end.x = end[0];
             linkShape.end.y = end[1];
+
+            linkPair.linkShape = linkShape;
+            linkPair.anchorPosPair = [start, end];
+            linkPair.anchorPair = anchorPair;
         }
     }
 
@@ -238,14 +267,14 @@ export class LinkModel {
      * @param linkPair
      */
     updateLinkPos(linkPair: LinkPair, effectElement: Element) {
-        let element = linkPair.ele,
+        let element = linkPair.element,
             target = linkPair.target,
             linkShape = linkPair.linkShape,
             labelShape = linkPair.labelShape,
             dx = 0,
             dy = 0;
 
-        // 若是动态锚点
+        // 若是动态锚点（没有在配置项中指定锚点）
         if(!linkPair.anchorPair) {
             let [start, end] = this.getDynamicAnchorPos(element, target);
 
@@ -256,7 +285,7 @@ export class LinkModel {
         }
         else {
             // 若连线受影响的是发出 element，更新连线起点
-            if(linkPair.ele === effectElement) {
+            if(linkPair.element === effectElement) {
                 dx = element.x - element.lastX, 
                 dy = element.y - element.lastY,
                 linkShape.start.x += dx;
@@ -475,7 +504,7 @@ export class LinkModel {
      * 获取元素的某个锚点
      */
     private getElementAnchor(ele: Element, anchorIndex: number): anchor  {
-        let customAnchors = this.layoutOption[ele.name].anchors,
+        let customAnchors = ele.anchors,
             defaultAnchors = ele.shape.defaultAnchors(ele.shape.getBaseAnchors(), ele.shape.width, ele.shape.height);
 
         if(customAnchors) {
@@ -535,7 +564,7 @@ export class LinkModel {
             lastLinkPair = this.lastLinkPairs[i];
 
             if(this.linkPairs.find(item => item.id === lastLinkPair.id) === undefined) {
-                let element = elementList.find(item => item.elementId === lastLinkPair.ele.elementId),
+                let element = elementList.find(item => item.elementId === lastLinkPair.element.elementId),
                     target = elementList.find(item => item.elementId === lastLinkPair.target.elementId);
 
                 if(element) {

@@ -1,5 +1,6 @@
-import { Style, BaseOption } from "./Shapes/shape";
+import { Style, BaseOption, Shape } from "./Shapes/shape";
 import { anchorSet } from "./Model/linkModel";
+import { Element } from "./Model/element";
 
 
 
@@ -37,40 +38,9 @@ export interface LinkOption {
 }
 
 
-
-
 // 所有视图元素配置项
-export type ElementsOption = { 
-    [p: string]: string
-} | string;
+export type ElementOption = BaseShapeOption & { shape: { new(...arg): Shape } | string };
 
-// 布局配置项
-export interface LayoutOption {
-    // 单个元素的图形配置
-    [key: string]: Partial<BaseShapeOption> | any;
-    // 指针图形配置
-    pointer: { [k: string]: Partial<PointerOption> };
-    // 连接线图形配置
-    link: { [k: string]: Partial<LinkOption> };
-    // 位移，默认[number, number]，当为'auto'时，默认居中于容器
-    translate: [number, number] | 'auto';
-    // 缩放，默认[number, number]，当为'auto'时，默认适应容器
-    scale: [number, number] | 'auto';
-}
-
-// 交互配置项
-export interface InteractionOption {
-    // 允许鼠标滚轮缩放视图
-    zoomView: [number, number] | boolean;
-    // 允许鼠标左键拖拽视图
-    moveView: boolean;
-    // 允许鼠标拖拽元素
-    drag: boolean | string[];
-    // 允许鼠标 点击元素
-    focus: Partial<Style> | false;
-    // 框选功能
-    frameSelect: Partial<Style>;
-}
 
 // 动画配置项
 export interface AnimationOption {
@@ -85,14 +55,92 @@ export interface AnimationOption {
 }
 
 
-// 总配置项
-export interface EngineOption {
-    // 元素配置项
-    element?: Partial<ElementsOption>;
-    // 布局配置项
-    layout?: Partial<LayoutOption>;
-    // 交互配置项
-    interaction?: Partial<InteractionOption>;
-    // 动画配置项
+// 结构配置项
+export interface StructOption {
+    element?: { new(...arg): Element } | {
+        [key: string]: { new(...arg): Element };
+    };
+    link?: string[];
+    pointer?: string[];
+}
+
+// 视图（外观）配置项
+export interface ViewOption {
+    element?: Partial<ElementOption> | { [key: string]: Partial<ElementOption> };
+    link?: { [key: string]: Partial<LinkOption> };
+    pointer?: { [key: string]: Partial<PointerOption> };
+    layout?: { [key: string]: any };
     animation?: Partial<AnimationOption>;
+    // 位置，默认[number, number]，当为'auto'时，默认居中于容器
+    position?: [number, number] | 'auto';
+    // 缩放，默认[number, number]，当为'auto'时，默认适应容器
+    scale?: [number, number] | 'auto';
+}
+
+// 交互配置项
+export interface InteractOption {
+    // 允许鼠标滚轮缩放视图
+    zoomView?: [number, number] | boolean;
+    // 允许鼠标左键拖拽视图
+    moveView?: boolean;
+    // 允许鼠标拖拽元素
+    drag?: boolean | string[];
+    // 允许鼠标 点击元素
+    focus?: Partial<Style> | false;
+    // 框选功能
+    frameSelect?: Partial<Style> | false;
+}
+
+
+
+// 总配置项
+// 分布为：结构 - 外观 - 交互
+export interface EngineOption {
+    // 可视化元素结构配置项
+    struct?: Partial<StructOption>;
+    // 可视化外观配置项
+    view?: Partial<ViewOption>;
+    // 可视化交互配置项
+    interact?: Partial<InteractOption>
 };
+
+
+
+/**
+ * 默认连线配置项
+ */
+export class DefaultLinkOption implements LinkOption {
+    markers: string | string[] = null;
+    curveness: number = 0;
+    contact: [number, number][] | [number, number] | ((linkIndex: number) => [number, number]) = null;   
+    label: string = null;
+    style: Partial<Style> = {
+        fill: '#000',
+        lineWidth: 2
+    };
+    labelStyle: Partial<Style> = {
+        textBackgroundColor: 'rgba(0, 0, 0, 1)',
+        textFill: '#fff'
+    };                  
+    show: string | [string, string] = 'scale';
+}
+
+/**
+ * 默认指针配置项
+ */
+export class DefaultPointerOption implements PointerOption {
+    length: number = 30;
+    offset: number = 15;
+    labelInterval: number = 5;
+    position: 'top' | 'left' | 'bottom' | 'right' = 'top';
+    markers = 'arrow';
+    labelStyle: Partial<Style> = {
+        textBackgroundColor: 'rgba(0, 0, 0, 1)',
+        textFill: '#fff'
+    };
+    style: Partial<Style> = {
+        fill: '#666',
+        lineWidth: 4
+    };
+    show: string | [string, string] = 'scale';
+}

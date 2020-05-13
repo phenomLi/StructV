@@ -3,20 +3,32 @@ import { Element } from "./element";
 import { Util } from "../Common/util";
 import { ViewModel } from "../View/viewModel";
 import { Text } from "../Shapes/text";
-import { PointerOption, LayoutOption } from "../option";
+import { PointerOption } from "../option";
 import { anchor } from "./linkModel";
 import { Line } from "../SpecificShapes/line";
+import { Style } from "../Shapes/shape";
 
 
 export interface PointerPair {
+    // 指针 id
     id: string;
+    // 指针图形实例
     pointerShape: Line;
-    label: string;
-    labelShapes: Text[];
-    target: Element;
+    // 指针类型名称
     pointerName: string;
+    // 指针图形实例样式
+    pointerShapeStyle: Partial<Style>;
+    // 被该指针合并的其他指针
     branchPairs: PointerPair[];
+    // 若该指针是一个被合并的指针，保存合并这个指针的主指针
     masterPair: PointerPair;
+
+    // 指针标签内容
+    label: string;
+    //  指针标签实例
+    labelShapes: Text[];
+    // 目标 element
+    target: Element;
 }
 
 
@@ -26,28 +38,26 @@ export interface PointerPair {
 export class PointerModel {
     private dataModel: DataModel;
     private viewModel: ViewModel;
-    private layoutOption: LayoutOption;
     private pointerOptions: { [key: string]: Partial<PointerOption> };
 
     private lastPointerPairs: PointerPair[] = [];
     private pointerPairs: PointerPair[] = [];
 
-    constructor(dataModel: DataModel, viewModel: ViewModel, layoutOption: LayoutOption) {
+    constructor(dataModel: DataModel, viewModel: ViewModel, pointerOptions: { [key: string]: Partial<PointerOption> }) {
         this.dataModel = dataModel;
         this.viewModel = viewModel;
-        this.layoutOption = layoutOption;
-        this.pointerOptions = this.layoutOption.pointer;
+        this.pointerOptions = pointerOptions;
     }
 
     /**
      * 构建指针模型
+     * @param pointerNames
      * @param elementList 
-     * @param pointerOptions 
      */
-    constructPointers(elementList: Element[]) {
-        if(!this.pointerOptions) return;
+    constructPointers(pointerNames: string[], elementList: Element[]) {
+        if(pointerNames.length === 0) return;
 
-        Object.keys(this.pointerOptions).map(pointerName => {
+        pointerNames.forEach(pointerName => {
             for(let i = 0; i < elementList.length; i++) {
                 let ele = elementList[i];
                 
@@ -71,86 +81,59 @@ export class PointerModel {
      * @param label
      */
     addPointerPair(targetElement: Element, pointerName: string, label: string | string[]) {
-        let pointerOption = this.layoutOption.pointer[pointerName],
-            pointerShape = null,
-            labelShape = null,
-            id = null;
-
         if(Array.isArray(label)) {
-            id = pointerName + '#' + label[0];
-            pointerShape = this.viewModel.createShape(id, 'line', this.pointerOptions[pointerName]) as Line;
-
             const branchPairs: PointerPair[] = label.map(item => {
-                labelShape = this.viewModel.createShape(
-                    pointerName + '-' + item + '-text', 
-                    'text', 
-                    { 
-                        style: pointerOption.labelStyle,
-                        content: item,
-                        show: pointerOption.show 
-                    }
-                ) as Text;
-
-                targetElement.onRefer(pointerShape.style, pointerName, item);
-
-                return {
-                    id: pointerName + '#' + item + '-' + targetElement.elementId,
+                let pointerPair: PointerPair = {
+                    id: pointerName + '#' + item,
                     pointerShape: null,
                     label: item,
-                    labelShapes: [labelShape],
+                    labelShapes: [],
                     target: targetElement,
                     pointerName,
                     branchPairs: null,
-                    masterPair: null
+                    masterPair: null,
+                    pointerShapeStyle: {}
                 };
+
+                targetElement.onRefer(pointerPair.pointerShapeStyle as Style, pointerName, item);
+
+                return pointerPair;
             });
 
             let masterPair = branchPairs.shift();
             branchPairs.map(item => (item.masterPair = masterPair));
             masterPair.branchPairs = branchPairs;
-            masterPair.pointerShape = pointerShape;
-            branchPairs.forEach(item => {
-                masterPair.labelShapes = masterPair.labelShapes.concat(item.labelShapes);
-            });
+            masterPair.pointerShape = null;
 
             this.pointerPairs.push(masterPair, ...branchPairs);
+
             targetElement.effectRefer = masterPair;
         }
         else {
-            id = pointerName + '#' + label;
-            pointerShape = this.viewModel.createShape(id, 'line', this.pointerOptions[pointerName]) as Line;
-            labelShape = this.viewModel.createShape(
-                pointerName + '-' + label + '-text', 
-                'text', 
-                { 
-                    style: pointerOption.labelStyle,
-                    content: label,
-                    show: pointerOption.show 
-                }
-            ) as Text;
-
-            let pointerPair = {
+            let id = pointerName + '#' + label,
+                pointerPair = {
                 id,
-                pointerShape,
+                pointerShape: null,
                 label,
-                labelShapes: [labelShape],
+                labelShapes: [],
                 target: targetElement,
                 pointerName,
                 branchPairs: null,
-                masterPair: null
+                masterPair: null,
+                pointerShapeStyle: {}
             }
 
             this.pointerPairs.push(pointerPair);
-            targetElement.effectRefer = pointerPair;
 
-            targetElement.onRefer(pointerShape.style, pointerName, label);
+            targetElement.effectRefer = pointerPair;
+            targetElement.onRefer(pointerPair.pointerShapeStyle as Style, pointerName, label);
         }
     }
 
     /**
-     * 初始化外部指针的坐标
+     * 绘制指针
      */
-    setRefersPos() {
+    drawPointers() {
         // 由字符串方向（top，left，bottom，right）映射到锚点的表
         // 主要为外部指针所用
         const directionMapAnchor = {
@@ -161,38 +144,81 @@ export class PointerModel {
         };
 
         for(let i = 0; i < this.pointerPairs.length; i++) {
-            let pointerPair = this.pointerPairs[i];
+            let pointerPair = this.pointerPairs[i],
+                { 
+                    id,
+                    target, 
+                    pointerName,
+                    label 
+                } = pointerPair,
+                pointerOption = this.pointerOptions[pointerName],
+                { 
+                    labelInterval, 
+                    offset, 
+                    length, 
+                    position,
+                    labelStyle,
+                    show 
+                } = pointerOption,
+                pointerShape = null,
+                labelShapes = [];
 
             // 需要被合并的指针，跳过不处理
             if(pointerPair.masterPair) {
                 continue;
             }
 
-            let pointerName = pointerPair.pointerName,
-                pointerOption = this.layoutOption.pointer[pointerName],
-                target = pointerPair.target,
-                pointerShape = pointerPair.pointerShape,
-                labelShapes = pointerPair.labelShapes,
-                labelInterval = pointerOption.labelInterval;
+            
+            // ------------------------------------- 处理指针箭头 ---------------------------------
                 
             let x = target.x, 
                 y = target.y, 
                 w = target.width, 
                 h = target.height, 
                 r = target.rotation,
-                anchor = directionMapAnchor[pointerOption.position || 'top'] as anchor,
-                start = Util.anchor2position(x, y, w, h, r, anchor, pointerOption.offset + pointerOption.length),
-                end = Util.anchor2position(x, y, w, h, r, anchor, pointerOption.offset);
+                anchor = directionMapAnchor[position] as anchor,
+                start = Util.anchor2position(x, y, w, h, r, anchor, offset + length),
+                end = Util.anchor2position(x, y, w, h, r, anchor, offset);
 
+            pointerShape = this.viewModel.createShape(id, 'line', this.pointerOptions[pointerName]) as Line;
             pointerShape.start.x = start[0];
             pointerShape.start.y = start[1];
             pointerShape.end.x = end[0];
             pointerShape.end.y = end[1];
 
+            Util.extends(pointerShape.style, pointerPair.pointerShapeStyle);
+            pointerPair.pointerShape = pointerShape;
+
+            // ------------------------------------ 处理指针标签 --------------------------------------
+
+            labelShapes.push(this.viewModel.createShape(
+                pointerName + '-' + label + '-text', 
+                'text', 
+                { 
+                    style: labelStyle,
+                    content: label,
+                    show: show 
+                }
+            ) as Text);
+
+            if(pointerPair.branchPairs) {
+                labelShapes.push(...pointerPair.branchPairs.map(pair => {
+                    return this.viewModel.createShape(
+                        pointerName + '-' + pair.label + '-text', 
+                        'text', 
+                        { 
+                            style: labelStyle,
+                            content: pair.label,
+                            show: show 
+                        }
+                    ) as Text;
+                }));
+            }
+
             let curX = 0;
     
             labelShapes.map((label: Text, index) => {
-                let dirSign = pointerOption.position === 'left'? -1: 1,
+                let dirSign = position === 'left'? -1: 1,
                     offset = index === 0? 2: 0 
     
                 label.y = start[1];
@@ -200,6 +226,8 @@ export class PointerModel {
     
                 curX = curX + label.width + labelInterval + offset;
             });
+
+            pointerPair.labelShapes = labelShapes;
         }
     }
 

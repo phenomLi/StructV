@@ -10,6 +10,10 @@ export class Rect extends Shape {
         super(id, name, opt);
     }
 
+    updateSize(animation: boolean) {
+        this.updateZrenderShape('position', animation);
+    }
+
     createZrenderShape(): zrenderShape {
         let zrenderShape = new Renderer.zrender.Rect({
             position: [this.x, this.y],

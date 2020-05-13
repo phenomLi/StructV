@@ -1,16 +1,15 @@
 import { Shape, Style } from '../Shapes/shape';
 import { SourceElement } from '../sources';
-import { LayoutOption } from '../option';
 import { BoundingRect, Bound } from '../View/boundingRect';
-import { LinkPair } from './linkModel';
+import { LinkPair, anchorSet } from './linkModel';
 import { PointerPair } from './pointerModel';
 
 
 export interface LinkInfo {
-    style: Style, 
-    name: string, 
-    index: number,
-    label: string
+    style: Partial<Style>; 
+    name: string;
+    index: number;
+    label: string;
 }
 
 
@@ -25,12 +24,13 @@ export class Element<T extends SourceElement = SourceElement> {
     rotation: number = 0;
     width: number = 0;
     height: number = 0;
-    style: Style = null;
+    style: Partial<Style> = {  };
+    anchors: anchorSet = null;
 
     lastX: number = 0;
     lastY: number = 0;
     shape: Shape = null;
-    layoutOption: LayoutOption;
+    layoutOption: { [key: string]: any };
     // 连带影响的连线
     effectLinks: LinkPair[] = [];
     // 连带影响的外部指针

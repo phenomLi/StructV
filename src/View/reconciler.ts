@@ -108,6 +108,9 @@ export class Reconciler {
 
         // 对变化进行更新
         this.patch(patchList);
+
+        // 更新图形后将脏标志置位假
+        oldShape.isDirty = newShape.isDirty = false;
     }
 
     /**
@@ -172,8 +175,8 @@ export class Reconciler {
      */
     patch(patchList: patchInfo[]) {
         let patch: patchInfo, 
-            newShape,
-            oldShape,
+            newShape: Shape,
+            oldShape: Shape,
             i;
 
         for(i = 0; i < patchList.length; i++) {
@@ -200,7 +203,7 @@ export class Reconciler {
                     else {
                         oldShape.prevX = newShape.x;
                         oldShape.prevY = newShape.y;
-                        oldShape.updateZrenderShape('position');
+                        oldShape.updateZrenderShape('translate');
                     }
                     break;
                 }
@@ -214,6 +217,7 @@ export class Reconciler {
                 case patchType.SIZE: {
                     oldShape.prevWidth = newShape.width;
                     oldShape.prevHeight = newShape.height;
+                    oldShape.updateSize(true);
                     oldShape.updateZrenderShape('size');
                     break;
                 }
