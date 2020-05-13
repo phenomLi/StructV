@@ -33,6 +33,10 @@ export class Text extends Shape {
      * @param zrenderShape 
      */
     updateTextSize(zrenderShape) {
+        zrenderShape.attr('style', {
+            ...this.style,
+            textPadding: Math.sqrt(zrenderShape.style.fontSize) + 2
+        });
         let bound = zrenderShape.getBoundingRect();
         this.width = bound.width;
         this.height = bound.height;
@@ -47,10 +51,6 @@ export class Text extends Shape {
         zrenderShape.attr('position', [this.x, this.y]);
         zrenderShape.attr('origin', [this.width / 2, this.height / 2]);
         zrenderShape.attr('rotation', this.rotation);
-        zrenderShape.attr('style', {
-            ...this.style,
-            textPadding: Math.sqrt(zrenderShape.style.fontSize) + 2
-        });
     }
 
     createZrenderShape(): zrenderShape {

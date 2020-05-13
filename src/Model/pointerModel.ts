@@ -216,15 +216,14 @@ export class PointerModel {
             }
 
             let curX = 0;
-    
-            labelShapes.map((label: Text, index) => {
+            labelShapes.map((item: Text, index) => {
                 let dirSign = position === 'left'? -1: 1,
-                    offset = index === 0? 2: 0 
+                    startOffset = index === 0? 2: 0 
+
+                item.y = start[1];
+                item.x = start[0] + dirSign * (curX + labelInterval + startOffset);
     
-                label.y = start[1];
-                label.x = start[0] + dirSign * (curX + labelInterval + offset);
-    
-                curX = curX + label.width + labelInterval + offset;
+                curX = curX + item.width + labelInterval + startOffset;
             });
 
             pointerPair.labelShapes = labelShapes;
