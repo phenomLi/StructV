@@ -1,5 +1,6 @@
 import { Interaction } from "./interaction";
 import { GlobalShape } from "../View/globalShape";
+import { zrenderUpdateType } from "../View/renderer";
 
 
 
@@ -10,6 +11,8 @@ export class Move extends Interaction {
     private curY: number;
     private container: HTMLElement;
     private globalShape: GlobalShape;
+    private moveFactorX: number;
+    private moveFactorY: number;
 
     init() {
         this.container = this.renderer.getContainer();
@@ -23,6 +26,8 @@ export class Move extends Interaction {
         this.globalShape = this.renderer.getGlobalShape();
         this.curX = event.clientX;
         this.curY = event.clientY;
+        this.moveFactorX = 1;
+        this.moveFactorY = 1;
      
         this.enableMove = true;
         this.setData('moving', true);
@@ -35,13 +40,13 @@ export class Move extends Interaction {
 
         let x = event.clientX,
             y = event.clientY,
-            dx = x - this.curX,
-            dy = y - this.curY;
+            dx = (x - this.curX) * this.moveFactorX,
+            dy = (y - this.curY) * this.moveFactorY;
         
         this.curX = x;
         this.curY = y;
 
-        this.globalShape.translate(dx, dy);
+        this.globalShape.translate(dx, dy, zrenderUpdateType.TICK);
 
         return true;
     }
@@ -49,6 +54,7 @@ export class Move extends Interaction {
     finish() {
         if(this.enableMove) {
             this.enableMove = false;
+            this.renderer.toggleAutoPosition(false);
             this.setData('moving', false);
         }
     }

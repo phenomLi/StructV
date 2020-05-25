@@ -1,16 +1,23 @@
-import { zrenderShape, Renderer } from "./renderer";
+import { zrenderShape, Renderer, zrenderUpdateType } from "./renderer";
 import { Shape } from "../Shapes/shape";
 import { BoundingRect } from "./boundingRect";
 
 
 
 export class GlobalShape {
+    id: string;
+    type: string;
+    name: string;
     private renderer: Renderer = null;
     private zrenderGroup: zrenderShape = null;
+
+    private originX: number;
+    private originY: number;
 
     constructor(renderer: Renderer) {
         this.renderer = renderer;
         this.zrenderGroup = new Renderer.zrender.Group();
+        this.id = this.zrenderGroup.id.toString();
     }
 
     /**
@@ -22,7 +29,13 @@ export class GlobalShape {
             shape.map(item => this.add(item));
         }
         else {
-            shape.parentShape === null && this.zrenderGroup.add(shape.zrenderShape);
+            if(shape.parentShape === null) {
+                this.zrenderGroup.add(shape.zrenderShape);
+
+                if(shape.name !== 'text') {
+                    this.renderer.getOffScreen().add(shape.createZrenderShape(), shape.id);
+                }
+            }
         }
     }
 
@@ -52,41 +65,36 @@ export class GlobalShape {
      * - 每次缩放都要重新设置缩放原点
      * @param x 
      * @param y 
-     * @param animation
+     * @param type
      */
-    scale(x: number, y: number, animation: boolean = false) {
-        let [px, py] = this.getPosition(),
-            bound = this.getBound(),
-            originX = bound.x + bound.width / 2 - px,
-            originY = bound.y + bound.height / 2 - py,
-            prop = {
+    scale(x: number, y: number, type: number = zrenderUpdateType.ANIMATED) {
+        let prop = {
                 scale: [x, y]
             };
 
-        this.setOrigin(originX, originY);    
-        this.renderer.setAttribute(this.zrenderGroup, prop, animation);
+        this.renderer.setAttribute(this, prop, type);
     }
 
     /**
      * 位移
      * @param dx 
      * @param dy 
-     * @param animation
+     * @param type
      */
-    translate(dx: number, dy: number, animation: boolean = false) {
+    translate(dx: number, dy: number, type: number = zrenderUpdateType.ANIMATED) {
         let position = this.getPosition(),
             prop = {
                 position: [position[0] + dx, position[1] + dy]
             };
 
-        this.renderer.setAttribute(this.zrenderGroup, prop, animation);
+        this.renderer.setAttribute(this, prop, type);
     }
 
     /**
      * 获取 zrender 图形的 position
      */
     getPosition(): [number, number] {
-        return [this.zrenderGroup.position[0], this.zrenderGroup.position[1]];
+        return this.zrenderGroup.position;
     }
 
     /**
@@ -97,13 +105,24 @@ export class GlobalShape {
     }
 
     /**
+     * 获取 zrender 图形的 origin
+     */
+    getOrigin(): [number, number] {
+        return this.renderer.getOffScreen().getOrigin();
+    }
+
+    /**
      * 获取包围盒
      */
     getBound(): BoundingRect {
-        let bound = this.zrenderGroup.getBoundingRect();
-        this.zrenderGroup.updateTransform();
-        bound.applyTransform(this.zrenderGroup.transform);
-        return bound;
+        return this.renderer.getOffScreen().getBound();
+    }
+
+    /**
+     * 获取没有经过变换的包围盒
+     */
+    getNaiveBound(): BoundingRect {
+        return this.renderer.getOffScreen().getNaiveBound();
     }
 
     /**
@@ -114,20 +133,28 @@ export class GlobalShape {
     }
 
     /**
-     * 设置原点
-     * @param x
-     * @param y
+     * 将 origin 修正至几何中心
      */
-    setOrigin(x: number, y: number) {
-        this.zrenderGroup.attr('origin', [x, y]);
-    }
+    updateOriginToCenter() {
+        this.renderer.getOffScreen().updateOriginToCenter();
 
-    /**
-     * 设置position
-     * @param x 
-     * @param y 
-     */
-    setPosition(x: number, y: number) {
-        this.zrenderGroup.attr('position', [x, y]);
+        let [ox, oy] = this.getOrigin(),
+            [px, py] = this.getPosition();
+
+        this.zrenderGroup.attr('origin', [ox, oy]);
+
+        // 对在缩放情况下修改 origin 后进行的视图漂移进行修正
+        if(this.originX !== undefined && this.originY !== undefined) {
+            let [sx, sy] = this.getScale(),
+                tx, ty;
+
+            tx = (this.originX - ox) * (1 - sx);
+            ty = (this.originY - oy) * (1 - sy);
+
+            this.zrenderGroup.attr('position', [px + tx, py + ty]);
+        }
+
+        this.originX = ox;
+        this.originY = oy;
     }
 }

@@ -25,8 +25,10 @@ export interface PointerPair {
 
     // 指针标签内容
     label: string;
-    //  指针标签实例
+    //  指针标签图形实例
     labelShapes: Text[];
+    // 逗号图形实例
+    commaShapes: Text[];
     // 目标 element
     target: Element;
 }
@@ -88,6 +90,7 @@ export class PointerModel {
                     pointerShape: null,
                     label: item,
                     labelShapes: [],
+                    commaShapes: [],
                     target: targetElement,
                     pointerName,
                     branchPairs: null,
@@ -116,6 +119,7 @@ export class PointerModel {
                 pointerShape: null,
                 label,
                 labelShapes: [],
+                commaShapes: [],
                 target: targetElement,
                 pointerName,
                 branchPairs: null,
@@ -218,16 +222,46 @@ export class PointerModel {
             let curX = 0;
             labelShapes.map((item: Text, index) => {
                 let dirSign = position === 'left'? -1: 1,
-                    startOffset = index === 0? 2: 0 
+                    offset = index === 0? pointerShape.style.lineWidth + 4: labelInterval; 
 
                 item.y = start[1];
-                item.x = start[0] + dirSign * (curX + labelInterval + startOffset);
+                item.x = start[0] + dirSign * (curX + offset);
     
-                curX = curX + item.width + labelInterval + startOffset;
+                curX = curX + item.width + offset;
+
+                if(index > 0 && pointerOption.showComma) {
+                    pointerPair.commaShapes.push(this.drawComma(item, pointerOption));
+                }
             });
 
             pointerPair.labelShapes = labelShapes;
         }
+    }
+
+    /**
+     * 绘制多个指针指向同一 element 时的逗号
+     * @param attachLabelShape 
+     * @param pointerOption
+     */
+    private drawComma(attachLabelShape: Text, pointerOption: Partial<PointerOption>): Text {
+        let id = attachLabelShape.id + '-' + 'comma',
+            commaShape = this.viewModel.createShape(id, 'text', {
+                content: ',',
+                show: pointerOption.show,
+                style: {
+                    ...pointerOption.labelStyle,
+                    textBackgroundColor: 'transparent',
+                    textFill: '#000',
+                    textPadding: [0, 0, 0, 0],
+                    fontSize: 20
+                }
+            }) as Text;
+
+        let fontSize = commaShape.style.fontSize;
+        commaShape.x = attachLabelShape.x - pointerOption.labelInterval / 2 - fontSize / 8;
+        commaShape.y = attachLabelShape.y + attachLabelShape.height / 2 - fontSize / 2;
+
+        return commaShape;
     }
 
     /**
@@ -244,6 +278,7 @@ export class PointerModel {
         let pointerShape = pointerPair.pointerShape,
             labelShapes = pointerPair.labelShapes,
             targetElement = pointerPair.target,
+            commaShapes = pointerPair.commaShapes,
             dx = targetElement.x - targetElement.lastX,
             dy = targetElement.y - targetElement.lastY;
 
@@ -255,6 +290,11 @@ export class PointerModel {
         labelShapes.map((label: Text) => {
             label.x += dx;
             label.y += dy;
+        });
+
+        commaShapes.map((comma: Text) => {
+            comma.x += dx;
+            comma.y += dy;
         });
     }
 

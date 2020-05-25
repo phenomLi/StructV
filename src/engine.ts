@@ -2,7 +2,7 @@ import { ViewModel } from "./View/viewModel";
 import { Util } from "./Common/util";
 import { DataModel, ElementContainer } from "./Model/dataModel";
 import { ViewOption, EngineOption, InteractOption, StructOption, DefaultLinkOption, DefaultPointerOption } from "./option";
-import { Sources, SourceElement } from "./sources";
+import { Sources } from "./sources";
 import { Shape, Style } from "./Shapes/shape";
 import { Element } from "./Model/element";
 import { Group } from "./Model/group";
@@ -25,6 +25,7 @@ export interface EngineInfo {
 export interface ResizeOption {
     width?: number | 'auto';
     height?: number | 'auto';
+    force?: boolean;
 }
 
 
@@ -45,8 +46,6 @@ export class Engine {
     private interactionModel: InteractionModel = null;
     // 源数据代理器
     private sourcesProxy: SourcesProxy = null;
-    // 上一次输入的序列化之后的配置项
-    private lastStringifyOptions: string = null;
     // 用户的默认配置项
     private defaultOption: EngineOption = null;
 
@@ -151,6 +150,9 @@ export class Engine {
         // 重置数据
         this.reset();
 
+        this.beforeUpdate();
+        this.viewModel.isViewUpdating = true;
+
         // 建立元素间逻辑关系
         this.dataModel.constructElements(sources);
         // 根据逻辑关系布局元素
@@ -159,48 +161,12 @@ export class Engine {
             this.viewModel.renderer.getContainerWidth(),
             this.viewModel.renderer.getContainerHeight()
         );
-        // 绘制元素，连线和指针
-        this.dataModel.drawComponents();
         // 根据绑定更新图形
         this.dataModel.updateShapes();
         // 对图形进行调和
         this.viewModel.reconciliation();
         // 根据图形渲染视图
-        this.viewModel.renderShapes();
-    }
-
-    /**
-     * 可视化布局的更新（不发生结构改变，仅更新布局）
-     */
-    public updateLayout() {
-        // 根据逻辑关系布局元素
-        this.dataModel.layoutElements(
-            this.render.bind(this), 
-            this.viewModel.renderer.getContainerWidth(),
-            this.viewModel.renderer.getContainerHeight()
-        );
-        // 绘制元素，连线和指针
-        this.dataModel.drawComponents();
-        // 根据绑定更新图形
-        this.dataModel.updateShapes();
-        // 对图形进行调和
-        this.viewModel.reconciliation(true);
-        // 根据图形渲染视图
-        this.viewModel.renderShapes();
-    }
-
-    /**
-     * 可视化视图的更新（不发生结构改变，不重新布局，仅更新连线，指针和 element）
-     */
-    public updateView() {
-        // 绘制元素，连线和指针
-        this.dataModel.drawComponents();
-        // 根据绑定更新图形
-        this.dataModel.updateShapes();
-        // 对图形进行调和
-        this.viewModel.reconciliation(true);
-        // 根据图形渲染视图
-        this.viewModel.renderShapes();
+        this.viewModel.renderShapes(true);
     }
 
     /**
@@ -208,7 +174,7 @@ export class Engine {
      * @param elements 
      * @param enableAnimation 
      */
-    public updateElement(elements?: Element[], enableAnimation?: boolean) {
+    public updateElement(elements?: Element[], enableAnimation: boolean = false) {
         if(enableAnimation === undefined) {
             enableAnimation = this.viewOption.animation.enableAnimation;
         }
@@ -225,8 +191,8 @@ export class Engine {
         this.dataModel.updateShapes(elements);
         // 对被修改的 shape 进行 differ 和 patch
         this.viewModel.reconciliation(true);
-        // 更新 zrender 图形实例
-        this.viewModel.renderShapes(true);
+        // 更新 zrender 图形实例（不自动调整视图）
+        this.viewModel.renderShapes(false);
 
         this.viewOption.animation.enableAnimation = defaultAnimation;
     }
@@ -252,6 +218,7 @@ export class Engine {
         if(stringifySources === this.stringifySources) return;
         this.sources = sources;
         this.stringifySources = stringifySources;
+        this.viewModel.structuralUpdate = true;
 
         // ------------------- 可视化主流程 ---------------------
 
@@ -279,14 +246,6 @@ export class Engine {
     public applyOptions(opt: EngineOption, updateView: boolean = true) {
         // 配置项为 null 或为空对象不执行更新
         if(!opt || Object.keys(opt).length === 0) return;
-
-        let lastStringifyOptions = JSON.stringify(opt);
-        // 若这次的配置项和上一次的配置项一样，不执行更新
-        if(this.lastStringifyOptions && this.lastStringifyOptions === lastStringifyOptions) {
-            return;
-        }
-
-        this.lastStringifyOptions = lastStringifyOptions;
 
         // 覆盖结构配置
         if(opt.struct) {
@@ -316,31 +275,12 @@ export class Engine {
         }
 
         // 第一次初始化时( updateView 为 false )不更新视图
-        if(updateView === false) {
+        if(updateView === false || this.sources === null) {
             return;
         }
 
         // 修改配置后，更新一次视图
-        // 若新配置项更新了可视化结构，则更新整个引擎
-        if(opt.struct) {
-            this.updateEngine(this.sources);
-            return;
-        }
-
-        // 否则进行视图更新
-        if(opt.view) {
-            if(opt.view.layout) {
-                this.updateLayout();
-                return;
-            }
-
-            if(opt.view.element || opt.view.link || opt.view.pointer) {
-                this.updateView();
-                return;
-            }
-            
-            return;
-        }
+        this.updateEngine(this.sources);
     }
 
     /**
@@ -451,14 +391,15 @@ export class Engine {
      */
     public resize(option?: ResizeOption) {
         if(option === undefined) {
-            option = { width: 'auto', height: 'auto' };
+            option = { width: 'auto', height: 'auto', force: false };
         }
         else {
             option.width = option.width || 'auto';
             option.height = option.height || 'auto';
+            option.force = option.force === undefined? false: option.force;
         }
 
-        this.viewModel.renderer.resizeGlobalShape(option, this.viewOption.position, this.viewOption.scale);
+        this.viewModel.renderer.resizeGlobalShape(option);
     }
 
 

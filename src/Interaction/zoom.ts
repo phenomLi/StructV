@@ -1,5 +1,6 @@
 import { Interaction } from "./interaction";
 import { Util } from "../Common/util";
+import { zrenderUpdateType } from "../View/renderer";
 
 
 
@@ -7,11 +8,11 @@ import { Util } from "../Common/util";
 
 export class Zoom extends Interaction {
     // 一次滚轮缩放值
-    zoomDelta: number = 0.25;
+    private zoomDelta: number = 0.25;
     // 最大缩放值
-    maxZoomValue: number = 4;
+    private maxZoomValue: number = 4;
     // 最小缩放值
-    minZoomValue: number = 0.25;
+    private minZoomValue: number = 0.25;
 
     init() {
         let zoomRange = this.optionValue as [number, number] | true,
@@ -47,17 +48,22 @@ export class Zoom extends Interaction {
         scaleX = Util.clamp(scaleX, this.maxZoomValue, this.minZoomValue);
         scaleY = Util.clamp(scaleY, this.maxZoomValue, this.minZoomValue);
 
-        globalShape.scale(scaleX, scaleY);
+        if(scaleX === this.minZoomValue || scaleX === this.maxZoomValue || scaleY === this.minZoomValue || scaleY === this.maxZoomValue) {
+            return;
+        }
+
+        globalShape.scale(scaleX, scaleY, zrenderUpdateType.TICK);
+        this.renderer.toggleAutoScale(false);
 
         return true;
     }
 
-    /**
-     * 鼠标滚轮事件
-     * @param event 
-     */
     trigger(event: WheelEvent) {
         this.emitHandler(event['wheelDelta'] > 0? 1: -1);
+    }
+
+    triggerCondition() {
+        return !this.getData('enableFrameSelect');
     }
 
     /**

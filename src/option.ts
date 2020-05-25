@@ -23,6 +23,7 @@ export interface PointerOption {
     markers: string | string[];
     labelStyle: Partial<Style>;
     style: Partial<Style>;
+    showComma: boolean;
     show: string | [string, string];
 }
 
@@ -72,9 +73,9 @@ export interface ViewOption {
     layout?: { [key: string]: any };
     animation?: Partial<AnimationOption>;
     // 位置，默认[number, number]，当为'auto'时，默认居中于容器
-    position?: [number, number] | 'auto';
+    position?: [number, number] | 'auto' | false;
     // 缩放，默认[number, number]，当为'auto'时，默认适应容器
-    scale?: [number, number] | 'auto';
+    scale?: [number, number] | 'auto' | false;
 }
 
 // 交互配置项
@@ -131,16 +132,18 @@ export class DefaultLinkOption implements LinkOption {
 export class DefaultPointerOption implements PointerOption {
     length: number = 30;
     offset: number = 15;
-    labelInterval: number = 5;
+    labelInterval: number = 10;
     position: 'top' | 'left' | 'bottom' | 'right' = 'top';
     markers = 'arrow';
     labelStyle: Partial<Style> = {
         textBackgroundColor: 'rgba(0, 0, 0, 1)',
-        textFill: '#fff'
+        textFill: '#fff',
+        textPadding: [4, 4, 4, 4]
     };
     style: Partial<Style> = {
         fill: '#666',
         lineWidth: 4
     };
+    showComma = true;
     show: string | [string, string] = 'scale';
 }

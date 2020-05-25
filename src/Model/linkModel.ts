@@ -302,7 +302,7 @@ export class LinkModel {
         }
 
         // 若有标签，标签避让检测
-        if(labelShape) {
+        if(labelShape && labelShape.isDirty === false) {
             this.labelAvoid(labelShape, linkShape, [0, 1], 0);
         }
     }

@@ -19,7 +19,8 @@ export class Circle extends Shape {
                 cy: 0,
                 r: this.width / 2
             },
-            style: this.style
+            style: this.style,
+            z: this.option.zIndex
         });
 
         return zrenderShape;

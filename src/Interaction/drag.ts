@@ -75,6 +75,7 @@ export class Drag extends Interaction {
                 };
             }
 
+            item.isDragged = true;
             this.draggableShapes[item.elementId].lastX = x;
             this.draggableShapes[item.elementId].lastY = y;
             this.draggableShapes[item.elementId].element = item;
@@ -97,10 +98,12 @@ export class Drag extends Interaction {
             let cur = this.curDraggableShapes[i],
                 dx = x - cur.lastX,
                 dy = y - cur.lastY,
-                ele = cur.element;
+                ele: Element = cur.element;
 
             ele.x += dx / scale[0];
             ele.y += dy / scale[1];
+            ele.isDragged = true;
+
             cur.lastX = x;
             cur.lastY = y;
         }
@@ -112,6 +115,8 @@ export class Drag extends Interaction {
     finish() {
         this.curDraggableShapes.length = 0;
         this.setData('dragging', false);
+        this.renderer.toggleAutoScale(false);
+        this.renderer.toggleAutoPosition(false);
     }
 
     triggerCondition() {

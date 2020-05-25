@@ -4,6 +4,7 @@ import { BoundingRect, Bound } from "../View/boundingRect";
 import { anchorSet } from "../Model/linkModel";
 import { BaseShapeOption } from "../option";
 import { Element } from "../Model/element";
+import { OffScreen } from "../View/offscreen";
 
  
 export interface BaseOption {
@@ -246,62 +247,48 @@ export class Shape {
 
     /**
      * 获取图形包围盒
+     * @param transformed
      */
-    getBound(): BoundingRect {
-        // 若已经有zrender图形，直接返回zrender图形的包围盒
-        if(this.zrenderShape) {
-            let {width, height} = this.zrenderShape.getBoundingRect();
-
-            return {
-                x: this.x - width / 2,
-                y: this.y - height / 2,
-                width,
-                height
-            };
-        }
-
-        let originBound = {
-            x: this.x - this.width / 2,
-            y: this.y - this.height / 2,
-            width: this.width,
-            height: this.height
-        };
-
-        if(this.rotation) {
-            return Bound.rotation(originBound, this.rotation);
-        }
-        else {
-            return originBound;
-        }
+    getBound(transformed: boolean = true): BoundingRect {
+        return this.renderer.getOffScreen().getShapeBound(this.id, transformed);
     }
 
     /**
      * 当修改图形尺寸后需要对图形坐标进行修正
-     * @param animation
+     * @param type
      */
-    updateSize(animation: boolean) { }
+    updateSize(type?: number) { }
 
     /**
      * 更新zrender图形
      * @param name 
-     * @param animation
-     * @param fn
+     * @param opt
      */
-    updateZrenderShape(name: string, animation?: boolean, fn?: Function) {
+    updateZrenderShape(name: string, opt?: { type?: number, fn?: Function }) {
         if(this.zrenderShape === null) return;
 
         let props = this.renderer.getAnimationProps(this, this.animationsTable[name]);
 
+        if(opt === undefined) {
+            opt = {
+                type: undefined,
+                fn: () => {}
+            };
+        }
+ 
         // 保存回调函数
-        if(fn) props['callback'] = fn;
+        if(opt.fn) props['callback'] = opt.fn;
 
-        // 复合图形修改属性/进行动画前要先修正origin
+        // 对 composite 和 polyline 修正origin
         if(this.type === 'composite' || this.name === 'polyLine') {
-            let bound = this.getBound();
-            this.zrenderShape.attr('origin', [bound.x + bound.width / 2, bound.y + bound.height / 2]);
+            let bound = this.zrenderShape.getBoundingRect(),
+                origin = [bound.x + bound.width / 2, bound.y + bound.height / 2];
+
+            this.zrenderShape.attr('origin', origin);
+            this.renderer.getOffScreen().update(this.id, 'origin', origin);
         }
 
-        this.renderer.setAttribute(this.zrenderShape, props, animation);
+        this.renderer.setAttribute(this, props, opt.type);
     }
 
     /**

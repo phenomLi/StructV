@@ -108,9 +108,6 @@ export class Reconciler {
 
         // 对变化进行更新
         this.patch(patchList);
-
-        // 更新图形后将脏标志置位假
-        oldShape.isDirty = newShape.isDirty = false;
     }
 
     /**
@@ -217,7 +214,7 @@ export class Reconciler {
                 case patchType.SIZE: {
                     oldShape.prevWidth = newShape.width;
                     oldShape.prevHeight = newShape.height;
-                    oldShape.updateSize(true);
+                    oldShape.updateSize();
                     oldShape.updateZrenderShape('size');
                     break;
                 }

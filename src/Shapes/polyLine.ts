@@ -48,7 +48,8 @@ export class PolyLine extends Shape {
                 points: this.path,
                 smooth: this.style.smooth
             },
-            style: this.style
+            style: this.style,
+            z: this.option.zIndex
         });
 
         return zrenderShape;

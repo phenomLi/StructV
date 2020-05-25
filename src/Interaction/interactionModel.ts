@@ -119,4 +119,11 @@ export class InteractionModel {
             this.interactionMap[interactionName].finish(param);
         }
     }
+
+    /**
+     * 获取全局交互数据
+     */
+    getData(dataName: string) {
+        return this.dataStore[dataName];
+    }
 }

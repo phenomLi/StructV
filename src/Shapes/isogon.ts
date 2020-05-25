@@ -28,7 +28,8 @@ export class Isogon extends Shape {
                 n: this.option.edges,
                 r: this.width / 2
             },
-            style: this.style
+            style: this.style,
+            z: this.option.zIndex
         });
 
         return zrenderShape;

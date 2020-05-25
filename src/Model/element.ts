@@ -37,6 +37,8 @@ export class Element<T extends SourceElement = SourceElement> {
     effectRefer: PointerPair = null;
     // 该 element 是否已经被遗弃（一次更新完成后）
     isObsolete: boolean = false;
+    // 是否刚拖拽过
+    isDragged: boolean = false;
 
     [key: string]: any;
 

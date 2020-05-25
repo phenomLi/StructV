@@ -62,7 +62,8 @@ export class Curve extends PolyLine {
                 cpx1: this.controlPoint[0],
                 cpy1: this.controlPoint[1]
             },
-            style: this.style
+            style: this.style,
+            z: this.option.zIndex
         });
 
         return zrenderShape;

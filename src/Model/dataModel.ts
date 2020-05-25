@@ -6,7 +6,6 @@ import { SourceElement, Sources } from "../sources";
 import { Util } from "../Common/util";
 import { LinkModel, anchor } from "./linkModel";
 import { PointerModel } from "./pointerModel";
-import { StructOption, BaseShapeOption } from "../option";
 
 
 
@@ -26,6 +25,8 @@ export class DataModel {
     private elementList: Element[] = [];
     // 元素容器，即源数据经element包装后的结构
     private elementContainer: ElementContainer = {};
+    // 可以跳过布局的 element 的 id
+    private skipLayoutElementIds: string[] = [];
 
     constructor(private engine: Engine, viewModel: ViewModel) {
         this.engine = engine;
@@ -87,38 +88,14 @@ export class DataModel {
 
         // 调用自定义布局函数对所有 element 进行布局
         layoutFn(elements, containerWidth, containerHeight);
-    }
 
-    /**
-     * 构建连线和指针
-     */
-    drawComponents() {
         for(let i = 0; i < this.elementList.length; i++) {
-            let element = this.elementList[i],
-                shapeOption = this.engine.viewOption.element, 
-                contents = null,
-                shapeName = null, 
-                shape: Shape = null;
+            let element = this.elementList[i];
 
-            if(shapeOption.shape === undefined) {
-                shapeOption = shapeOption[element.name];
+            if(this.skipLayoutElementIds.find(item => item === element.elementId)) {
+                element.x = element.shape.prevX;
+                element.y = element.shape.prevY;
             }
-
-            contents = Array.isArray(shapeOption.content)? 
-                shapeOption.content.map(item => this.parserElementContent(element, item)):
-                this.parserElementContent(element, shapeOption.content as string);
-
-            // 若没有为一个 element 指定图形，报错
-            Util.assert(shapeName === undefined, `(${element.name}) 未指定 shape！`);
-
-            shapeName = shapeOption.shape;
-            shape = this.viewModel.createShape(element.elementId, shapeName, { ...shapeOption, content: contents });
-
-            // 利用 shape 初始化某些数据
-            Util.extends(shape.style, element.style);
-            element.style = shape.style;
-            element.shape = shape;
-            shape.element = element;
 
             element.lastX = element.x;
             element.lastY = element.y;
@@ -132,18 +109,24 @@ export class DataModel {
 
     /**
      * 响应 element 的绑定（更新绑定的 shapes ）
+     * @param updateElements
+     * @param hasLayout
      */
     updateShapes(updateElements: Element[] = []) {
         let elementList = updateElements.length? updateElements: this.elementList;
 
         // 更新与元素绑定的图形
         for(let i = 0; i < elementList.length; i++) {
-            let element = elementList[i],
+            let element: Element = elementList[i],
                 shape = element.shape;
 
             // 跳过过时的 element
             if(element.isObsolete) {
                 continue;
+            }
+
+            if(element.isDragged) {
+                this.skipLayoutElementIds.push(element.elementId);
             }
 
             shape.x = element.x;
@@ -154,13 +137,9 @@ export class DataModel {
             shape.style = element.style as Style;
             shape.isDirty = true;
 
+            // 更新与该 element 相关的图形
             for(let j = 0; j < element.effectLinks.length; j++) {
                 let linkPair = element.effectLinks[j];
-
-                // 避免重复更新
-                if(linkPair.linkShape.isDirty) {
-                    continue;
-                }
 
                 this.linkModel.updateLinkPos(linkPair, element);
 
@@ -177,6 +156,9 @@ export class DataModel {
 
                 pointerPair.pointerShape.isDirty = true;
                 pointerPair.labelShapes.forEach(item => {
+                    item.isDirty = true;
+                });
+                pointerPair.commaShapes.forEach(item => {
                     item.isDirty = true;
                 });
             }
@@ -207,10 +189,10 @@ export class DataModel {
      */
     private createElement(sourceElement: SourceElement, elementName: string): Element {
         let elementStruct = this.engine.structOption.element,
-            eleConstructor = null,
             elementId = elementName + '#' + sourceElement.id,
+            eleConstructor = null,
             element: Element = null,
-            shapeOption = this.engine.viewOption.element;
+            viewOption = this.engine.viewOption;
 
         if(typeof elementStruct === 'object') {
             eleConstructor = elementStruct[elementName];
@@ -227,22 +209,36 @@ export class DataModel {
         element = new eleConstructor(sourceElement);
         element.elementId = elementId;
         element.name = elementName;
-        element.layoutOption = this.engine.viewOption.layout;
+        
+        let shapeOption = null, 
+            contents = null,
+            shapeName = null, 
+            shape: Shape = null;
 
+        shapeOption = viewOption.element;
         if(shapeOption.shape === undefined) {
             shapeOption = shapeOption[element.name];
         }
 
-        if(Array.isArray(shapeOption.size)) {
-            element.width = shapeOption.size[0];
-            element.height = shapeOption.size[1];
-        }
-        else {
-            element.width = element.height = shapeOption.size as number;
-        }
+        shapeName = shapeOption.shape;
+
+        // 若没有为一个 element 指定图形，报错
+        Util.assert(shapeName === undefined, `(${elementName}) 未指定 shape！`);
+
+        contents = Array.isArray(shapeOption.content)? 
+            shapeOption.content.map(item => this.parserElementContent(element, item)):
+            this.parserElementContent(element, shapeOption.content);
+
+        shape = this.viewModel.createShape(element.elementId, shapeName, { ...shapeOption, content: contents });
         
-        element.rotation = shapeOption.rotation || 0;
-        element.anchors = shapeOption.anchors;
+        // 利用 shape 初始化 element 某些数据
+        element.shape = shape;
+        element.width = shape.width;
+        element.height = shape.height;
+        element.rotation = shape.rotation;
+        element.style = shape.style;
+        element.layoutOption = viewOption.layout;
+        shape.element = element;
       
         this.elementList.push(element);
 
@@ -333,6 +329,7 @@ export class DataModel {
         });
 
         this.elementList.length = 0;
+        //this.skipLayoutElementIds.length = 0;
         this.elementContainer = {};
 
         this.linkModel.clear();

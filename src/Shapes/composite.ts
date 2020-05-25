@@ -78,13 +78,9 @@ export class Composite extends Shape {
             item.shape.isDirty = this.isDirty;
             item.shape.element = this.element;
 
-            let { x, y, width, height } = this.getBound(),
-                cx = x + width / 2, 
-                cy = y + height / 2;
-
             if(this.rotation) {
                 this.subShapes.map(item => {
-                    let d = Vector.rotation(this.rotation, [item.shape.x, item.shape.y], [cx, cy]);
+                    let d = Vector.rotation(this.rotation, [item.shape.x, item.shape.y], [-this.width / 2, -this.height / 2]);
                     item.shape.x = d[0];
                     item.shape.y = d[1];
                     item.shape.rotation = this.rotation;
@@ -94,10 +90,6 @@ export class Composite extends Shape {
     }
 
     // -------------------------------------------------------
-    
-    getBound(): BoundingRect {
-        return Bound.union(...this.subShapes.map(item => item.shape.getBound()))
-    }
 
     createZrenderShape(): zrenderShape {
         let zrenderShape = new Renderer.zrender.Group({
@@ -106,12 +98,19 @@ export class Composite extends Shape {
         });
 
         this.subShapes.map(item => {
+            let subZrenderShape = item.shape.createZrenderShape();
+                
             if(item.shape.zrenderShape === null) {
-                item.shape.zrenderShape = item.shape.createZrenderShape();
-                item.shape.zrenderShape.attr('z', item.shape.option.zIndex);
+                item.shape.zrenderShape = subZrenderShape;
             }
-            
-            zrenderShape.add(item.shape.zrenderShape);
+
+            if(this.zrenderShape) {
+                subZrenderShape.shapeId = item.shape.id;
+                zrenderShape.add(subZrenderShape);
+            }
+            else {  
+                zrenderShape.add(item.shape.zrenderShape);
+            }
         });
 
         return zrenderShape;

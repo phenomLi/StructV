@@ -52,7 +52,8 @@ export class Arrow extends Shape {
                 width: this.width,
                 height: this.height
             },
-            style: this.style
+            style: this.style,
+            z: this.option.zIndex
         });
 
         return zrenderShape;

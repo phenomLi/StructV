@@ -10,8 +10,8 @@ export class Rect extends Shape {
         super(id, name, opt);
     }
 
-    updateSize(animation: boolean) {
-        this.updateZrenderShape('position', animation);
+    updateSize(type?: number) {
+        this.updateZrenderShape('position');
     }
 
     createZrenderShape(): zrenderShape {
@@ -24,7 +24,8 @@ export class Rect extends Shape {
                 width: this.width,
                 height: this.height
             },
-            style: this.style
+            style: this.style,
+            z: this.option.zIndex
         });
 
         return zrenderShape;

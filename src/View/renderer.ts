@@ -1,6 +1,6 @@
 import { Shape, mountState } from "./../Shapes/shape";
-import { AnimationOption } from '../option';
-import { shapeContainer, ViewModel } from "./viewModel";
+import { AnimationOption, ViewOption } from '../option';
+import { ViewModel } from "./viewModel";
 import { Util } from "../Common/util";
 import { Text } from "../Shapes/text";
 import { GlobalShape } from "./globalShape";
@@ -8,11 +8,21 @@ import * as zrender from './../lib/zrender.min';
 import { Bound, BoundingRect } from "./boundingRect";
 import { Animations } from "./animations";
 import { ResizeOption } from "../engine";
+import { OffScreen } from "./offscreen";
 
 
 
 export type zrenderShape = any;
 
+
+export enum zrenderUpdateType {
+    // 立刻更新
+    IMMED = 0,
+    // 在 render 阶段统一更新
+    TICK = 1,
+    // 动画后更新
+    ANIMATED = 2
+};
 
 
 /**
@@ -25,9 +35,11 @@ export class Renderer {
     // 视图管理器
     private viewModel: ViewModel;
     // 全局图形容器
-    public globalShape: GlobalShape;
+    private globalShape: GlobalShape;
+    // 离屏缓存
+    private offscreen: OffScreen;
     // 配置项
-    private animationOption: AnimationOption;
+    private viewOption: ViewOption;
     // 动画表
     private animations: Animations;
     // 需使用动画更新的zrender属性的队列
@@ -54,16 +66,14 @@ export class Renderer {
     private containerHeight: number;
     // 上一次更新是否被该次打断
     private isLastUpdateInterrupt: boolean = false;
-    // 上一次视图的真实中心（不考虑 position）
-    public lastCenter: [number, number];
 
-    constructor(container: HTMLElement, viewModel: ViewModel, opt: AnimationOption) {
+    constructor(container: HTMLElement, viewModel: ViewModel, opt: ViewOption) {
         this.viewModel = viewModel;
         this.zr = Renderer.zrender.init(container);
-        this.animations = new Animations(opt);
+        this.animations = new Animations(opt.animation as AnimationOption);
         this.globalShape = new GlobalShape(this);
-        this.globalShape.setOrigin(container.offsetWidth / 2, container.offsetHeight / 2);
-        this.animationOption = opt;
+        this.offscreen = new OffScreen(this.globalShape.id, this);
+        this.viewOption = opt;
 
         this.container = container;
         this.containerWidth = container.offsetWidth;
@@ -74,28 +84,42 @@ export class Renderer {
 
     /**
      * 设置zrender图形属性
-     * @param zrenderShape
+     * @param shape
      * @param props
-     * @param animation
+     * @param updateType
      */
-    setAttribute(zrenderShape, props, animation: boolean) {
-        if(animation === undefined) {
-            animation = this.animationOption.enableAnimation;
+    setAttribute(shape: Shape | GlobalShape, props, updateType?: number) {
+        let animation = this.viewOption.animation.enableAnimation,
+            zrenderShape = shape instanceof Shape? shape.zrenderShape: shape.getZrenderShape();
+
+        if(zrenderShape === null) {
+            return
         }
 
-        let queue = animation? this.animatePropsQueue: this.propsQueue;
+        if(updateType === undefined) {
+            updateType = animation? zrenderUpdateType.ANIMATED: zrenderUpdateType.TICK;
+        }
 
-        let item = queue.find(item => zrenderShape.id === item.zrenderShape.id);
+        if(updateType === zrenderUpdateType.TICK || updateType === zrenderUpdateType.ANIMATED) {
+            let queue = updateType === zrenderUpdateType.ANIMATED? this.animatePropsQueue: this.propsQueue,
+            item = queue.find(item => zrenderShape.id === item.zrenderShape.id);
 
-        if(!item) {
-            queue.push({
-                zrenderShape,
-                props
-            });
+            if(!item) {
+                queue.push({
+                    zrenderShape,
+                    props
+                });
+            }
+            else {
+                Util.extends(item.props, props);
+            }
         }
         else {
-            Util.extends(item.props, props);
+            zrenderShape.attr(props);
         }
+
+        // 更新离屏图形
+        this.offscreen.update(shape.id, props);
     }
 
     /**
@@ -119,13 +143,13 @@ export class Renderer {
                 else {
                     // 文本图形特殊处理
                     if(shape instanceof Text) {
-                        shape.updateText(shape.zrenderShape);
+                        shape.updateText();
                     }
                 }
                 // 将图形加入到全局图形容器
                 this.globalShape.add(shape);
                 // 在图形加入容器后，设置为隐藏，为淡入淡出动画做铺垫
-                shape.updateZrenderShape('hide', false);
+                shape.updateZrenderShape('hide', { type: zrenderUpdateType.IMMED });
                 // 修改挂载状态为已挂载
                 shape.mountState = mountState.MOUNTED;
                 // 设置图形可见性
@@ -148,27 +172,25 @@ export class Renderer {
                 shape.mountState = mountState.UNMOUNTED;
                 // 设置图形可见性
                 shape.visible = false;
-                shape.updateZrenderShape('hide', true, (shape => {
-                    return () => {
-                        this.globalShape.remove(shape);
-                        shape.zrenderShape = null;
-                    }
-                })(shape));
+                shape.updateZrenderShape('hide', {
+                    fn:  (shape => {
+                        return () => {
+                            this.globalShape.remove(shape);
+                            Util.removeFromList(this.viewModel.getShapeList(), item => shape.id === item.id);
+                        }
+                    })(shape)
+                });
+                this.getOffScreen().remove(shape.id);
             }
         });
-
-        // 更新视图缩放 / 旋转中心
-        let globalBound = this.getGlobalBound(),
-            cx = globalBound.x + globalBound.width / 2,
-            cy = globalBound.y + globalBound.height / 2;
-
-        this.globalShape.setOrigin(cx, cy);
     }
 
     /**
      * 根据属性更新队列更新zrender图形
      */
     updateZrenderShapes(callback?: () => void) {
+        let animationOption = this.viewOption.animation;
+
         // 遍历属性列表，直接修改属性
         if(this.propsQueue.length) {
             this.propsQueue.map(item => {
@@ -184,8 +206,7 @@ export class Renderer {
 
             this.propsQueue.length = 0;
 
-            if(this.animationOption.enableAnimation === false) {
-                this.viewModel.isViewUpdating = false;
+            if(animationOption.enableAnimation === false) {
                 callback && callback();
             }
         }
@@ -196,21 +217,17 @@ export class Renderer {
                 this.animatePropsQueue = [];
 
                 let queue = this.lastAnimatePropsQueue,
-                    queueLength = queue.length,
-                    counter = 0;
+                    queueLength = queue.length;
 
                 // 遍历动画属性列表，执行动画
-                queue.map(item => {
+                queue.map((item, index) => {
                     item.zrenderShape.animateTo(
                         item.props, 
-                        this.animationOption.duration, 
-                        this.animationOption.timingFunction, 
+                        animationOption.duration, 
+                        animationOption.timingFunction, 
                         () => {
-                            counter++;
-
                             // 所有动画结束，触发afterUpadte回调事件
-                            if(counter === queueLength && this.isLastUpdateInterrupt === false) {
-                                this.viewModel.isViewUpdating = false;
+                            if(index === queueLength - 1 && this.isLastUpdateInterrupt === false) {
                                 queue.length = 0;
                                 callback && callback();
                             }
@@ -239,58 +256,16 @@ export class Renderer {
 
             // 所有动画结束，触发afterUpadte回调事件
             callback && callback();
-            this.viewModel.isViewUpdating = false;
             this.lastAnimatePropsQueue.length = 0;
             this.isLastUpdateInterrupt = false;
         }
     }
 
     /**
-     * 根据 translate 和 scale 调整视图
-     * @param position 
-     * @param scale 
-     * @param bound
-     */
-    adjustGlobalShape(position: [number, number] | 'auto', scale: [number, number] | 'auto', bound?: BoundingRect) {
-        let globalBound = bound || this.getGlobalBound(),
-            isFirstRender = this.viewModel.isFirstRender;
-
-        if(position !== undefined) {
-            if(Array.isArray(position)) {
-                let [px, py] = this.globalShape.getPosition();
-                this.globalShape.translate(position[0] - px, position[1] - py, !isFirstRender);
-            }
-
-            if(position === 'auto') {
-                this.autoPosition(globalBound, !isFirstRender);
-            }
-        }
-
-        if(scale !== undefined) {
-            if(Array.isArray(scale)) {
-
-                // 限制缩放大小在 [0.25, 4]
-                if(scale[0] > 4) scale[0] = 4;
-                if(scale[0] < 0.25) scale[0] = 0.25;
-                if(scale[1] > 4) scale[1] = 4;
-                if(scale[1] < 0.25) scale[1] = 0.25;
-
-                this.globalShape.scale(scale[0], scale[1], !isFirstRender);
-            }
-
-            if(scale === 'auto') {
-                this.autoScale(globalBound, !isFirstRender);
-            }
-        }
-    }
-
-    /**
      * 重新整视图尺寸
      * @param option
-     * @param position
-     * @param scale
      */
-    resizeGlobalShape(option: ResizeOption, position: [number, number] | 'auto', scale: [number, number] | 'auto') {
+    resizeGlobalShape(option: ResizeOption) {
         // 视图正在更新，不进行操作
         if(this.viewModel.isViewUpdating) return;
 
@@ -299,68 +274,83 @@ export class Renderer {
             bound = this.globalShape.getBound();
 
         // 容器尺寸没有发生变化，不执行操作
-        if(targetWidth === this.containerWidth && targetHeight === this.containerHeight) {
+        if(targetWidth === this.containerWidth && targetHeight === this.containerHeight && option.force === false) {
             return;
         }
 
-        this.viewModel.isViewUpdating = true;
         this.containerWidth = targetWidth;
         this.containerHeight = targetHeight;
 
         this.zr.resize(option);
 
-        let newTranslate = [ this.containerWidth / 2, this.containerHeight / 2 ];
         // 调整视图
-        this.adjustGlobalShape(newTranslate as [number, number], scale, bound);
+        this.setGlobalShapePosition(bound);
+        this.setGlobalShapeScale(bound);
         // 更新视图
         this.updateZrenderShapes();
     }
 
     /**
-     * 调整视图至容器中央
+     * 设置视图 position
      * @param bound
-     * @param enableAnimation
      */
-    autoPosition(bound: BoundingRect, enableAnimation: boolean = false) {
-        let isFirstRender = this.viewModel.isFirstRender,
+    setGlobalShapePosition(bound: BoundingRect) {
+        let position = this.viewOption.position,
+            isFirstRender = this.viewModel.isFirstRender,
             cx = bound.x + bound.width / 2,
             cy = bound.y + bound.height / 2,
             dx, dy;
 
-        // 首次调整
-        if(isFirstRender) {
+        if(position === undefined || position === false) {
+            return;
+        }
+
+        if(Array.isArray(position)) {
+            dx = position[0] - cx;
+            dy = position[1] - cy;
+        }
+
+        if(position === 'auto') {
             dx = this.containerWidth / 2 - cx;
             dy = this.containerHeight / 2 - cy;
         }
-        else {
-            dx = this.lastCenter[0] - cx;
-            dy = this.lastCenter[1] - cy;
-        }
 
-        this.globalShape.translate(dx, dy, enableAnimation);
-        this.lastCenter = [cx, cy];
+        this.globalShape.translate(dx, dy, isFirstRender? zrenderUpdateType.TICK: zrenderUpdateType.ANIMATED);
     }
 
     /**
-     * 调整视图使视图适应容器尺寸
+     * 设置视图 scale
      * @param bound
-     * @param enableAnimation 
      */
-    autoScale(bound: BoundingRect, enableAnimation: boolean = false) {
-        let globalScale = this.globalShape.getScale(),
-            globalWidth = bound.width,
-            globalHeight = bound.height,
-            maxEdge =  globalWidth > globalHeight? this.containerWidth: this.containerHeight,
-            maxBoundEdge = globalWidth > globalHeight? globalWidth: globalHeight,
-            dWidth = globalWidth - this.containerWidth,
-            dHeight = globalHeight - this.containerHeight,
-            edge, boundEdge;
+    setGlobalShapeScale(bound: BoundingRect) {
+        let scale = this.viewOption.scale,
+            isFirstRender = this.viewModel.isFirstRender,
+            scaleX, scaleY;
 
-        if(dWidth < 0 && dHeight < 0) {
-            edge = maxEdge;
-            boundEdge = maxBoundEdge;
+        if(scale === undefined || scale === false) {
+            return;
         }
-        else {
+
+        if(Array.isArray(scale)) {
+            // 限制缩放大小在 [0.25, 4]
+            if(scale[0] > 4) scale[0] = 4;
+            if(scale[0] < 0.25) scale[0] = 0.25;
+            if(scale[1] > 4) scale[1] = 4;
+            if(scale[1] < 0.25) scale[1] = 0.25;
+
+            scaleX = scale[0];
+            scaleY = scale[1];
+        }
+
+        if(scale === 'auto') {
+            let globalScale = this.globalShape.getScale(),
+                globalWidth = bound.width,
+                globalHeight = bound.height,
+                dWidth = globalWidth - this.containerWidth,
+                dHeight = globalHeight - this.containerHeight,
+                targetCoefficient = 0.75,
+                edge, boundEdge;
+
             if(dWidth > dHeight) {
                 boundEdge = globalWidth;
                 edge = this.containerWidth;
@@ -369,18 +359,35 @@ export class Renderer {
                 boundEdge = globalHeight;
                 edge = this.containerHeight;
             }
-        }
 
-        let scaleCoefficient = edge * 0.75 / boundEdge,
+            let scaleCoefficient = edge * targetCoefficient / boundEdge;
+
             scaleX = globalScale[0] * scaleCoefficient,
             scaleY = globalScale[1] * scaleCoefficient;
 
-        if(scaleX > 1) scaleX = 1;
-        if(scaleY > 1) scaleY = 1;
-        if(scaleX < 0.25) scaleX = 0.25;
-        if(scaleY < 0.25) scaleY = 0.25;
+            if(scaleX > 1) scaleX = 1;
+            if(scaleY > 1) scaleY = 1;
+            if(scaleX < 0.25) scaleX = 0.25;
+            if(scaleY < 0.25) scaleY = 0.25;
+        }
 
-        this.globalShape.scale(scaleX, scaleY, enableAnimation);
+        this.globalShape.scale(scaleX, scaleY, isFirstRender? zrenderUpdateType.TICK: zrenderUpdateType.ANIMATED);
+    }
+
+    /**
+     * 设置位置
+     * @param value
+     */
+    toggleAutoPosition(value: false | 'auto') {
+        this.viewOption.position = value;
+    }
+
+    /**
+     * 设置缩放
+     * @param value
+     */
+    toggleAutoScale(value: false | 'auto') {
+        this.viewOption.scale = value;
     }
 
     /**
@@ -393,13 +400,10 @@ export class Renderer {
     }
 
     /**
-     * 获取由所有图形组成的包围盒
-     * @param shapes
+     * 获取离屏缓存
      */
-    getGlobalBound(shapesBound: boolean = true): BoundingRect {
-        return shapesBound?
-            Bound.union(...this.viewModel.getShapeList().map(item => item.getBound())):
-            this.globalShape.getBound();
+    getOffScreen(): OffScreen {
+        return this.offscreen;
     }
 
     /**

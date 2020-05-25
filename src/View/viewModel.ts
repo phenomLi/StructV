@@ -1,7 +1,7 @@
 import { Engine } from "../engine";
 import { Renderer } from "./renderer";
 import { Reconciler } from "./reconciler";
-import { ViewOption, AnimationOption, BaseShapeOption } from "../option";
+import { BaseShapeOption } from "../option";
 import { Shape, mountState } from "../Shapes/shape";
 import { Util } from "../Common/util";
 import { Composite } from "../Shapes/composite";
@@ -24,8 +24,6 @@ export class ViewModel {
     private shapeList: Shape[] = [];
     // 移除图形队列。需要移除的图形将被放进这个列表
     private removeList: Shape[] = [];
-    // 视图配置项
-    private viewOption: ViewOption;
     // 静态文本id
     public staticTextId: number = 0;
     // 渲染器
@@ -34,11 +32,12 @@ export class ViewModel {
     public isViewUpdating: boolean = false;
     // 是否首次渲染
     public isFirstRender: boolean = true;
+    // 是否是结构性更新
+    public structuralUpdate: boolean = false;
 
     constructor(private engine: Engine, container: HTMLElement) {
         this.reconciler = new Reconciler(this);
-        this.viewOption = engine.viewOption;
-        this.renderer = new Renderer(container, this, engine.viewOption.animation as AnimationOption);
+        this.renderer = new Renderer(container, this, engine.viewOption);
     };
 
 
@@ -160,7 +159,7 @@ export class ViewModel {
             existShape.visible = true;
 
             if(existShape instanceof Text) {
-                existShape.updateTextSize(existShape.zrenderShape);
+                existShape.updateTextSize();
             }
 
             return existShape;
@@ -201,33 +200,29 @@ export class ViewModel {
 
     /**
      * 渲染 view
-     * @param updateViewOnly
+     * @param adjustView
      */
-    renderShapes(updateViewOnly: boolean = false) {
-        // 开始更新钩子
-        this.beforeUpdate();
-        
-        // 若不是只单纯地更新视图某个元素（涉及结构变化），需要进行下面步骤
-        if(updateViewOnly === false) {
-            // 如果进行这次更新时上次更新还未完成，跳过上次更新的动画
-            if(this.isViewUpdating) {
-                this.renderer.skipUpdateZrenderShapes(() => {
-                    this.afterUpdate.call(this);
-                });
-            }
+    renderShapes(adjustView: boolean = true) {
+        // 如果进行这次更新时上次更新还未完成，跳过上次更新的动画
+        if(this.isViewUpdating) {
+            this.renderer.skipUpdateZrenderShapes(this.afterUpdate.bind(this));
+        }
 
-            this.isViewUpdating = true;
-
+        if(this.structuralUpdate) {
             // 渲染（创建和销毁） zrender 图形实例
             this.renderer.renderZrenderShapes(this.shapeList, this.removeList);
+        }
+
+        // 若不是只单纯地更新视图某个元素（涉及结构变化），需要进行下面步骤
+        if(adjustView) {
             // 调整视图
-            this.renderer.adjustGlobalShape(this.viewOption.position, this.viewOption.scale);
+            let globalShape = this.renderer.getGlobalShape();
+            this.renderer.setGlobalShapePosition(globalShape.getBound());
+            this.renderer.setGlobalShapeScale(globalShape.getBound());
         }
 
         // 更新 zrender 图形实例
-        this.renderer.updateZrenderShapes(() => {
-            this.afterUpdate.call(this);
-        });
+        this.renderer.updateZrenderShapes(this.afterUpdate.bind(this));
 
         // 取消首次渲染的标志
         if(this.isFirstRender) {
@@ -265,22 +260,29 @@ export class ViewModel {
      * 获取图形队列
      */
     getShapeList(): Shape[] {
-        return this.shapeList;
-    }
-
-    // ----------------------------------------------------------------
-
-    /**
-     * 视图更新前 
-     */
-    beforeUpdate() {
-        this.engine.beforeUpdate();
+        return this.shapeList.filter(item => item.mountState !== mountState.NEEDUNMOUNT);
     }
 
     /**
-     * 视图更新后
+     * 获取某个图形
+     * @param id 
      */
-    afterUpdate() {
+    getShape(id: string): Shape {
+        return this.shapeList.find(item => item.id === id);
+    }
+
+    /**
+     * 完成更新后的回调
+     */
+    private afterUpdate() {
+        this.renderer.getGlobalShape().updateOriginToCenter();
+
+        this.structuralUpdate = false;
+        this.isViewUpdating = false;
+        this.shapeList.forEach(item => {
+            item.isDirty = false;
+        });
+
         this.engine.afterUpdate();
     }
 }
